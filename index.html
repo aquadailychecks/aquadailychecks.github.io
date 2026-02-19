@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weekly Maintenance Log</title>
+    <title>Aqua Morning Checks - Maintenance Logs</title>
     <style>
         :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --text: #333; --danger: #e74c3c; }
+        * { box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
         .container { max-width: 1450px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.1); }
         
         .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--accent); padding-bottom: 15px; margin-bottom: 15px; }
-        h1 { margin: 0; font-size: 1.4rem; color: var(--primary); }
+        h1 { margin: 0; font-size: 1.6rem; color: var(--primary); letter-spacing: -0.5px; }
         
         .legend { display: flex; gap: 20px; margin-top: 10px; font-size: 0.85rem; color: #666; }
         .legend-item { display: flex; align-items: center; gap: 6px; }
@@ -60,7 +61,7 @@
 <div class="container">
     <div class="header">
         <div>
-            <h1>Daily Maintenance Log</h1>
+            <h1>Aqua Morning Checks - Maintenance Logs</h1>
             <div class="legend">
                 <div class="legend-item"><div class="box" style="background:white;"></div> Left-Click: Complete Task</div>
                 <div class="legend-item"><div class="box" style="background:#ffcccc; border-color:var(--danger);"></div> Right-Click: Mark Issue/Rerun</div>
@@ -169,8 +170,6 @@
         tableBody.innerHTML = '';
         rows.forEach((row, i) => {
             const tr = document.createElement('tr');
-            
-            // URL Detection logic applied to all rows except section headers
             const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
             const taskWithLinks = row.task.replace(urlRegex, (url) => {
                 const href = url.startsWith('http') ? url : `http://${url}`;
@@ -248,42 +247,19 @@
     document.getElementById('todayBtn').onclick = () => loadWeek(new Date());
 
     document.getElementById('exportBtn').onclick = () => {
-        // 1. Get Metadata
         const dateRange = document.getElementById('dateRangeDisplay').innerText;
         const lastUpdateText = document.getElementById('lastUpdateDisplay').innerText;
-        
-        // 2. Format CSV Header (Enclose metadata in quotes to handle commas safely)
-        let csv = `"WEEK DATE RANGE","${dateRange}"\n`;
-        csv += `"METADATA","${lastUpdateText.replace(/,/g, "")}"\n\n`; // Strip commas from user data for safety
-        csv += "Task,Time,Mon,Tue,Wed,Thu,Fri,Notes\n";
-
-        // 3. Process Table Rows
+        let csv = `"WEEK DATE RANGE","${dateRange}"\n"METADATA","${lastUpdateText.replace(/,/g, "")}"\n\nTask,Time,Mon,Tue,Wed,Thu,Fri,Notes\n`;
         document.querySelectorAll('#tableBody tr:not(:has(.section-header))').forEach(r => {
-            const cols = [
-                // Use innerText to strip out the HTML <a> tags created by the URL logic
-                `"${r.querySelector('.col-task').innerText.replace(/"/g, '""')}"`, 
-                r.querySelector('.col-time').innerText, 
-                ...Array.from(r.querySelectorAll('.col-day')).map(td => {
-                    const cb = td.querySelector('input');
-                    if (td.classList.contains('na-cell')) return "N/A";
-                    return cb.checked ? (td.classList.contains('has-issue') ? "ISSUE" : "DONE") : "";
-                }), 
-                `"${r.querySelector('.note-cell').innerText.replace(/"/g, '""')}"` 
-            ];
+            const cols = [`"${r.querySelector('.col-task').innerText.replace(/"/g, '""')}"`, r.querySelector('.col-time').innerText, ...Array.from(r.querySelectorAll('.col-day')).map(td => {
+                const cb = td.querySelector('input');
+                if (td.classList.contains('na-cell')) return "N/A";
+                return cb.checked ? (td.classList.contains('has-issue') ? "ISSUE" : "DONE") : "";
+            }), `"${r.querySelector('.note-cell').innerText.replace(/"/g, '""')}"` ];
             csv += cols.join(",") + "\n";
         });
-
-        // 4. Trigger Download
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const a = document.createElement('a'); 
-        const url = URL.createObjectURL(blob);
-        a.href = url; 
-        a.download = `Weekly_Log_${currentWeekId}.csv`; 
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); a.download = `Aqua_Log_${currentWeekId}.csv`; a.click();
     };
-
 
     loadWeek(new Date());
 </script>
