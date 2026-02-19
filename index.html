@@ -3,31 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Maintenance Checks</title>
+    <title>Weekly Maintenance Log</title>
     <style>
         :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --text: #333; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
-        .container { max-width: 1200px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.1); }
+        .container { max-width: 1300px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.1); }
         
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--accent); padding-bottom: 15px; margin-bottom: 25px; }
         h1 { margin: 0; font-size: 1.5rem; color: var(--primary); }
-        .week-label { font-weight: bold; color: var(--accent); background: #eafaf1; padding: 5px 15px; border-radius: 20px; }
+        .week-label { font-weight: bold; color: var(--accent); background: #eafaf1; padding: 8px 20px; border-radius: 20px; border: 1px solid var(--accent); }
 
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: fixed; }
         th { background: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; text-transform: uppercase; letter-spacing: 0.5px; }
-        td { padding: 10px; border: 1px solid #dee2e6; }
+        td { padding: 8px; border: 1px solid #dee2e6; overflow: hidden; }
         
-        .col-task { text-align: left; width: 40%; font-weight: 500; }
-        .col-time { text-align: center; width: 100px; color: #666; font-family: monospace; }
-        .col-day { text-align: center; width: 80px; }
+        .col-task { text-align: left; width: 35%; font-weight: 500; }
+        .col-time { text-align: center; width: 80px; color: #666; font-family: monospace; }
+        .col-day { text-align: center; width: 60px; }
+        .col-notes { width: 25%; }
         
         tr:nth-child(even) { background-color: #f9f9f9; }
         tr:hover { background-color: #f1f8e9; }
         
         input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent); }
-        .section-header { background: #eceff1 !important; font-weight: bold; text-align: left !important; color: #455a64; }
+        .section-header { background: #eceff1 !important; font-weight: bold; text-align: left !important; color: #455a64; padding-left: 15px; }
 
-        .file-upload { font-size: 0.8rem; border: 1px dashed #ccc; padding: 10px; border-radius: 5px; }
+        .note-cell { 
+            min-height: 20px; 
+            padding: 5px; 
+            background: transparent; 
+            outline: none; 
+            word-wrap: break-word; 
+            transition: background 0.2s;
+            text-align: left;
+        }
+        .note-cell:focus { background: #fffde7; border-radius: 4px; box-shadow: inset 0 0 0 1px #ffd600; }
+        
+        .file-upload { font-size: 0.8rem; border: 1px dashed #ccc; padding: 10px; border-radius: 5px; color: #777; }
     </style>
 </head>
 <body>
@@ -36,11 +48,11 @@
     <div class="header">
         <div>
             <h1>Daily Maintenance Log</h1>
-            <div id="dateRange" style="font-size: 0.85rem; color: #888; margin-top: 5px;"></div>
+            <div id="dateRange" style="font-size: 0.85rem; color: #888; margin-top: 5px;">Source: dailychecks.xlsx</div>
         </div>
         <div class="week-label" id="weekDisplay">Week --</div>
         <div class="file-upload">
-            Sync Template: <input type="file" id="csvFile" accept=".csv">
+            Update Template: <input type="file" id="csvFile" accept=".csv">
         </div>
     </div>
     
@@ -54,6 +66,7 @@
                 <th class="col-day">Wed</th>
                 <th class="col-day">Thu</th>
                 <th class="col-day">Fri</th>
+                <th class="col-notes">Notes (Weekly)</th>
             </tr>
         </thead>
         <tbody id="tableBody">
@@ -69,13 +82,15 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    // Generate Week ID (e.g., 2026_W08)
     const now = new Date();
-    const weekId = `${now.getFullYear()}_W${getWeekNumber(now)}`;
-    document.getElementById('weekDisplay').innerText = `Week ${getWeekNumber(now)}, ${now.getFullYear()}`;
+    const weekNo = getWeekNumber(now);
+    const weekId = `${now.getFullYear()}_W${weekNo}`;
+    document.getElementById('weekDisplay').innerText = `Week ${weekNo}, ${now.getFullYear()}`;
 
     const tableBody = document.getElementById('tableBody');
 
-    // 1. Initial Load of Task List
+    // 1. Initial Load: Get the list of tasks from the "settings" collection
     async function loadTemplate() {
         const snap = await getDoc(doc(db, "settings", "template"));
         if (snap.exists()) {
@@ -84,7 +99,7 @@
     }
     loadTemplate();
 
-    // 2. CSV Parser (Specific to your DailyChecks structure)
+    // 2. CSV Upload: Convert Excel CSV to the Task List
     document.getElementById('csvFile').addEventListener('change', function(e) {
         if (!e.target.files[0]) return;
         const reader = new FileReader();
@@ -92,14 +107,14 @@
             const lines = event.target.result.split('\n');
             const rows = [];
             
-            // Start from index 2 based on your file structure
             for (let i = 2; i < lines.length; i++) {
                 const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
                 if (cols[0] && !cols[0].includes('http')) {
                     rows.push({
                         task: cols[0],
                         time: cols[1] || '',
-                        isHeader: (cols[1] === "" && i > 2) // Marks rows like "SQL Manager Tasks"
+                        daysData: [cols[2], cols[3], cols[4], cols[5], cols[6]],
+                        isHeader: (cols[1] === "" && !cols[2])
                     });
                 }
             }
@@ -109,83 +124,74 @@
         reader.readAsText(e.target.files[0]);
     });
 
-    // 3. Render Table
-    // 3. Updated Render Table with N/A handling
+    // 3. Render Table with N/A and Notes
     function renderTable(rows) {
         tableBody.innerHTML = '';
         rows.forEach((row, rowIndex) => {
             const tr = document.createElement('tr');
             
             if (row.isHeader) {
-                tr.innerHTML = `<td colspan="7" class="section-header">${row.task}</td>`;
+                tr.innerHTML = `<td colspan="8" class="section-header">${row.task}</td>`;
             } else {
                 let html = `<td class="col-task">${row.task}</td><td class="col-time">${row.time}</td>`;
                 
-                // Days are mapped to indices 2, 3, 4, 5, 6 in your specific CSV row array
-                ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach((day, dayIndex) => {
+                // Mon-Fri Columns
+                ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach((day, dIdx) => {
                     const cellId = `r${rowIndex}_${day}`;
-                    const rawValue = row.daysData ? row.daysData[dayIndex] : "";
+                    const rawVal = row.daysData ? row.daysData[dIdx] : "";
                     
-                    // Check if the Excel cell actually says "N/A"
-                    if (rawValue && rawValue.toUpperCase() === "N/A") {
-                        html += `<td class="col-day" style="color: #ccc; font-size: 0.7rem;">N/A</td>`;
+                    if (rawVal && rawVal.toUpperCase() === "N/A") {
+                        html += `<td class="col-day" style="color: #bbb; font-size: 0.7rem;">N/A</td>`;
                     } else {
                         html += `<td class="col-day"><input type="checkbox" id="${cellId}"></td>`;
                     }
                 });
+
+                // Notes Column (Editable)
+                const noteId = `note_${rowIndex}`;
+                html += `<td class="col-notes"><div contenteditable="true" class="note-cell" id="${noteId}"></div></td>`;
+                
                 tr.innerHTML = html;
             }
             tableBody.appendChild(tr);
         });
-        syncCheckboxes();
+        syncWithFirebase();
     }
 
-    // Update the CSV Parser to capture the Day columns (N/A values)
-    document.getElementById('csvFile').addEventListener('change', function(e) {
-        if (!e.target.files[0]) return;
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            const lines = event.target.result.split('\n');
-            const rows = [];
-            
-            for (let i = 2; i < lines.length; i++) {
-                const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-                if (cols[0]) {
-                    rows.push({
-                        task: cols[0],
-                        time: cols[1] || '',
-                        // Capture columns 2-6 (Monday-Friday) to check for N/A
-                        daysData: [cols[2], cols[3], cols[4], cols[5], cols[6]],
-                        isHeader: (cols[1] === "" && !cols[2]) 
-                    });
-                }
-            }
-            await setDoc(doc(db, "settings", "template"), { rows });
-            renderTable(rows);
-        };
-        reader.readAsText(e.target.files[0]);
-    });
-
-    // 4. Firebase Real-time Sync
-    function syncCheckboxes() {
+    // 4. Persistence: Sync checkboxes and notes to the current Week Document
+    function syncWithFirebase() {
         const docRef = doc(db, "weekly_checks", weekId);
+
+        // Receive Updates
         onSnapshot(docRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
                 Object.keys(data).forEach(id => {
                     const el = document.getElementById(id);
-                    if (el) el.checked = data[id];
+                    if (!el) return;
+                    if (el.type === 'checkbox') {
+                        el.checked = data[id];
+                    } else if (el.getAttribute('contenteditable')) {
+                        // Only update text if the user isn't currently editing it
+                        if (document.activeElement !== el) el.innerText = data[id];
+                    }
                 });
             }
         });
 
+        // Save Checkbox Changes
         tableBody.onclick = async (e) => {
             if (e.target.type === 'checkbox') {
-                const update = {};
-                update[e.target.id] = e.target.checked;
-                await setDoc(docRef, update, { merge: true });
+                await setDoc(docRef, { [e.target.id]: e.target.checked }, { merge: true });
             }
         };
+
+        // Save Notes Changes (When user clicks out of the cell)
+        tableBody.addEventListener('focusout', async (e) => {
+            if (e.target.classList.contains('note-cell')) {
+                await setDoc(docRef, { [e.target.id]: e.target.innerText }, { merge: true });
+            }
+        });
     }
 
     function getWeekNumber(d) {
