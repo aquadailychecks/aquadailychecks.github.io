@@ -7,19 +7,19 @@
     <style>
         :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --text: #333; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
-        .container { max-width: 1300px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.1); }
+        .container { max-width: 1400px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.1); }
         
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--accent); padding-bottom: 15px; margin-bottom: 25px; }
         h1 { margin: 0; font-size: 1.5rem; color: var(--primary); }
-        .week-label { font-weight: bold; color: var(--accent); background: #eafaf1; padding: 8px 20px; border-radius: 20px; border: 1px solid var(--accent); }
+        .week-label { font-weight: bold; color: var(--accent); background: #eafaf1; padding: 8px 20px; border-radius: 20px; border: 1px solid var(--accent); white-space: nowrap; }
 
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: fixed; }
         th { background: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; text-transform: uppercase; letter-spacing: 0.5px; }
         td { padding: 8px; border: 1px solid #dee2e6; overflow: hidden; }
         
         .col-task { text-align: left; width: 35%; font-weight: 500; }
-        .col-time { text-align: center; width: 80px; color: #666; font-family: monospace; }
-        .col-day { text-align: center; width: 60px; }
+        .col-time { text-align: center; width: 85px; color: #666; font-family: monospace; }
+        .col-day { text-align: center; width: 65px; }
         .col-notes { width: 25%; }
         
         tr:nth-child(even) { background-color: #f9f9f9; }
@@ -36,8 +36,9 @@
             word-wrap: break-word; 
             transition: background 0.2s;
             text-align: left;
+            border: 1px solid transparent;
         }
-        .note-cell:focus { background: #fffde7; border-radius: 4px; box-shadow: inset 0 0 0 1px #ffd600; }
+        .note-cell:focus { background: #fffde7; border-radius: 4px; border: 1px solid #ffd600; box-shadow: inset 0 0 4px rgba(0,0,0,0.05); }
         
         .file-upload { font-size: 0.8rem; border: 1px dashed #ccc; padding: 10px; border-radius: 5px; color: #777; }
     </style>
@@ -48,9 +49,9 @@
     <div class="header">
         <div>
             <h1>Daily Maintenance Log</h1>
-            <div id="dateRange" style="font-size: 0.85rem; color: #888; margin-top: 5px;">Source: dailychecks.xlsx</div>
+            <div id="sourceDisplay" style="font-size: 0.85rem; color: #888; margin-top: 5px;">Source: dailychecks.xlsx</div>
         </div>
-        <div class="week-label" id="weekDisplay">Week --</div>
+        <div class="week-label" id="weekDisplay">Week --, Loading Dates...</div>
         <div class="file-upload">
             Update Template: <input type="file" id="csvFile" accept=".csv">
         </div>
@@ -82,15 +83,35 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Generate Week ID (e.g., 2026_W08)
-    const now = new Date();
-    const weekNo = getWeekNumber(now);
-    const weekId = `${now.getFullYear()}_W${weekNo}`;
-    document.getElementById('weekDisplay').innerText = `Week ${weekNo}, ${now.getFullYear()}`;
+    // --- DATE & WEEK CALCULATION ---
+    function getWeekInfo(d) {
+        const date = new Date(d);
+        const day = date.getDay();
+        // Adjust to Monday
+        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(date.setDate(diff));
+        const fri = new Date(new Date(mon).setDate(mon.getDate() + 4));
+        
+        // Calculate Week Number
+        const tempDate = new Date(Date.UTC(mon.getFullYear(), mon.getMonth(), mon.getDate()));
+        tempDate.setUTCDate(tempDate.getUTCDate() + 4 - (tempDate.getUTCDay() || 7));
+        const yearStart = new Date(Date.UTC(tempDate.getUTCFullYear(), 0, 1));
+        const weekNo = Math.ceil((((tempDate - yearStart) / 86400000) + 1) / 7);
+
+        return {
+            weekNo,
+            year: mon.getFullYear(),
+            range: `${mon.toLocaleDateString(undefined, {month:'short', day:'numeric'})} - ${fri.toLocaleDateString(undefined, {month:'short', day:'numeric'})}`
+        };
+    }
+
+    const weekInfo = getWeekInfo(new Date());
+    const weekId = `${weekInfo.year}_W${weekInfo.weekNo}`;
+    document.getElementById('weekDisplay').innerText = `Week ${weekInfo.weekNo}, ${weekInfo.range}`;
 
     const tableBody = document.getElementById('tableBody');
 
-    // 1. Initial Load: Get the list of tasks from the "settings" collection
+    // 1. Initial Load: Get Task Template
     async function loadTemplate() {
         const snap = await getDoc(doc(db, "settings", "template"));
         if (snap.exists()) {
@@ -99,7 +120,7 @@
     }
     loadTemplate();
 
-    // 2. CSV Upload: Convert Excel CSV to the Task List
+    // 2. CSV Upload: Convert CSV to Template
     document.getElementById('csvFile').addEventListener('change', function(e) {
         if (!e.target.files[0]) return;
         const reader = new FileReader();
@@ -107,6 +128,7 @@
             const lines = event.target.result.split('\n');
             const rows = [];
             
+            // Skipping first two header lines of your specific CSV
             for (let i = 2; i < lines.length; i++) {
                 const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
                 if (cols[0] && !cols[0].includes('http')) {
@@ -124,7 +146,7 @@
         reader.readAsText(e.target.files[0]);
     });
 
-    // 3. Render Table with N/A and Notes
+    // 3. Render Table
     function renderTable(rows) {
         tableBody.innerHTML = '';
         rows.forEach((row, rowIndex) => {
@@ -135,7 +157,7 @@
             } else {
                 let html = `<td class="col-task">${row.task}</td><td class="col-time">${row.time}</td>`;
                 
-                // Mon-Fri Columns
+                // Day Checkboxes + N/A Logic
                 ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach((day, dIdx) => {
                     const cellId = `r${rowIndex}_${day}`;
                     const rawVal = row.daysData ? row.daysData[dIdx] : "";
@@ -147,7 +169,7 @@
                     }
                 });
 
-                // Notes Column (Editable)
+                // Weekly Note Cell
                 const noteId = `note_${rowIndex}`;
                 html += `<td class="col-notes"><div contenteditable="true" class="note-cell" id="${noteId}"></div></td>`;
                 
@@ -158,11 +180,11 @@
         syncWithFirebase();
     }
 
-    // 4. Persistence: Sync checkboxes and notes to the current Week Document
+    // 4. Firebase Sync (Scoped to WeekID)
     function syncWithFirebase() {
         const docRef = doc(db, "weekly_checks", weekId);
 
-        // Receive Updates
+        // Load and Listen for real-time updates
         onSnapshot(docRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
@@ -172,33 +194,26 @@
                     if (el.type === 'checkbox') {
                         el.checked = data[id];
                     } else if (el.getAttribute('contenteditable')) {
-                        // Only update text if the user isn't currently editing it
+                        // Prevent cursor jump by only updating if not active
                         if (document.activeElement !== el) el.innerText = data[id];
                     }
                 });
             }
         });
 
-        // Save Checkbox Changes
+        // Save Checkbox Click
         tableBody.onclick = async (e) => {
             if (e.target.type === 'checkbox') {
                 await setDoc(docRef, { [e.target.id]: e.target.checked }, { merge: true });
             }
         };
 
-        // Save Notes Changes (When user clicks out of the cell)
+        // Save Note on Focus Out
         tableBody.addEventListener('focusout', async (e) => {
             if (e.target.classList.contains('note-cell')) {
                 await setDoc(docRef, { [e.target.id]: e.target.innerText }, { merge: true });
             }
         });
-    }
-
-    function getWeekNumber(d) {
-        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-        var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     }
 </script>
 </body>
