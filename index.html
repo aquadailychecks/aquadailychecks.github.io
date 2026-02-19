@@ -2,99 +2,115 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Check-In</title>
+    <title>Weekly Daily Check</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f4f7f6; }
-        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .task-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .completed { text-decoration: line-through; color: gray; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        .task-name { text-align: left; width: 40%; font-weight: 500; }
+        input[type="checkbox"] { transform: scale(1.5); cursor: pointer; }
+        .week-header { display: flex; justify-content: space-between; align-items: center; }
+        tr:hover { background-color: #f1f8ff; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Daily Checklist</h2>
-    <input type="file" id="csvFile" accept=".csv" />
-    <p><small>Export your Excel template as CSV and upload it here.</small></p>
-    <hr>
-    <div id="checklist"></div>
+<div class="card">
+    <div class="week-header">
+        <h2>Weekly Maintenance Check</h2>
+        <input type="file" id="csvFile" accept=".csv">
+    </div>
+    
+    <table id="checklistTable">
+        <thead>
+            <tr>
+                <th class="task-name">Task Description</th>
+                <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            </tbody>
+    </table>
 </div>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, collection, getDocs } 
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  // TODO: Replace with YOUR Firebase Config
-const firebaseConfig = {
-  apiKey: "AIzaSyAYeIrEFJ0AIK2EScA91lPQXtqf-lOfBWk",
-  authDomain: "aquadailychecks.firebaseapp.com",
-  projectId: "aquadailychecks",
-  storageBucket: "aquadailychecks.firebasestorage.app",
-  messagingSenderId: "1088043283120",
-  appId: "1:1088043283120:web:d23dedd97b07c041e7c175",
-  measurementId: "G-BM64K8XYV0"
-};
+    const firebaseConfig = { /* PASTE YOUR CONFIG HERE */ };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-const checklistDiv = document.getElementById('checklist');
-  const today = new Date().toISOString().split('T')[0];
+    // Identify current week (e.g., "2026_W08")
+    const now = new Date();
+    const weekId = `${now.getFullYear()}_W${getWeekNumber(now)}`;
+    const docRef = doc(db, "weekly_checks", weekId);
 
-  document.getElementById('csvFile').addEventListener('change', function(e) {
-    // FIX: Check if a file was actually selected
-    if (!e.target.files || e.target.files.length === 0) return;
+    const tableBody = document.getElementById('tableBody');
 
-    const reader = new FileReader();
-    reader.onload = function() {
-      const lines = reader.result.split('\n')
-        .map(line => line.trim())
-        // FIX: Ignore empty lines or lines containing URLs/Paths
-        .filter(line => line && !line.includes('http') && !line.startsWith(','));
-      
-      renderChecklist(lines);
-    };
-    reader.readAsText(e.target.files[0]);
-  });
+    // 1. Handle File Upload
+    document.getElementById('csvFile').addEventListener('change', function(e) {
+        if (!e.target.files[0]) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const tasks = event.target.result.split('\n')
+                .map(t => t.trim())
+                .filter(t => t && !t.includes('http') && t.length > 3);
+            renderTable(tasks);
+        };
+        reader.readAsText(e.target.files[0]);
+    });
 
-  async function renderChecklist(tasks) {
-    checklistDiv.innerHTML = 'Loading tasks...';
-    const fragment = document.createDocumentFragment();
+    // 2. Build the Grid
+    function renderTable(tasks) {
+        tableBody.innerHTML = '';
+        tasks.forEach((task, index) => {
+            const row = document.createElement('tr');
+            let html = `<td class="task-name">${task}</td>`;
+            
+            ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach(day => {
+                const cellId = `task${index}_${day}`;
+                html += `<td><input type="checkbox" id="${cellId}" data-task="${task}" data-day="${day}"></td>`;
+            });
+            
+            row.innerHTML = html;
+            tableBody.appendChild(row);
+        });
 
-    for (const taskName of tasks) {
-      // FIX: Sanitize the Document ID (Remove / . # $ [ ])
-      const safeId = taskName.replace(/[\/.\#$\[\]]/g, '_').substring(0, 100);
-      const docId = `${today}_${safeId}`;
-      
-      const docRef = doc(db, "daily_checks", docId);
-      const docSnap = await getDoc(docRef);
-      
-      let isChecked = docSnap.exists() ? docSnap.data().status : false;
-
-      const item = document.createElement('div');
-      item.className = 'task-item';
-      item.innerHTML = `
-        <span class="${isChecked ? 'completed' : ''}">${taskName}</span>
-        <input type="checkbox" ${isChecked ? 'checked' : ''}>
-      `;
-
-      const checkbox = item.querySelector('input');
-      checkbox.onclick = async () => {
-        try {
-            await setDoc(docRef, { taskName, status: checkbox.checked, date: today });
-            item.querySelector('span').className = checkbox.checked ? 'completed' : '';
-        } catch (err) {
-            console.error("Firebase Save Error:", err);
-            alert("Could not save status. Check console.");
-        }
-      };
-
-      fragment.appendChild(item);
+        setupSync();
     }
-    checklistDiv.innerHTML = '';
-    checklistDiv.appendChild(fragment);
-  }
+
+    // 3. Real-time Sync with Firebase
+    function setupSync() {
+        // Listen for changes from Database
+        onSnapshot(docRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data();
+                Object.keys(data).forEach(cellId => {
+                    const el = document.getElementById(cellId);
+                    if (el) el.checked = data[cellId];
+                });
+            }
+        });
+
+        // Save changes to Database
+        tableBody.addEventListener('click', async (e) => {
+            if (e.target.type === 'checkbox') {
+                const update = {};
+                update[e.target.id] = e.target.checked;
+                await setDoc(docRef, update, { merge: true });
+            }
+        });
+    }
+
+    function getWeekNumber(d) {
+        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+        var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
 </script>
 </body>
 </html>
