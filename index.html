@@ -317,7 +317,7 @@
         const blob = new Blob([csv], { type: 'text/csv' });
         const a = document.createElement('a'); 
         a.href = URL.createObjectURL(blob); 
-        a.download = `Log_${currentWeekId}.csv`; 
+        a.download = `Aqua_Daily_Checks_${currentWeekId}.csv`; 
         a.click();
     };
 
