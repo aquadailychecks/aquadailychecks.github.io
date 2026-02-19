@@ -13,14 +13,16 @@
         h1 { margin: 0; font-size: 1.5rem; color: var(--primary); }
         
         .controls { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
-        .search-input { padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px; width: 300px; outline: none; }
+        .search-input { padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px; width: 250px; outline: none; }
         .search-input:focus { border-color: var(--accent); }
 
-        .btn { padding: 8px 15px; border-radius: 5px; cursor: pointer; border: none; font-weight: bold; transition: 0.2s; }
+        .btn { padding: 8px 15px; border-radius: 5px; cursor: pointer; border: none; font-weight: bold; transition: 0.2s; font-size: 0.85rem; }
         .btn-export { background: var(--primary); color: white; }
-        .btn-export:hover { background: #34495e; }
+        .btn-today { background: #eee; color: var(--primary); }
+        .btn:hover { opacity: 0.8; }
 
-        .week-label { font-weight: bold; color: var(--accent); background: #eafaf1; padding: 8px 20px; border-radius: 20px; border: 1px solid var(--accent); white-space: nowrap; }
+        .week-picker-container { display: flex; align-items: center; gap: 10px; background: #eafaf1; padding: 5px 15px; border-radius: 20px; border: 1px solid var(--accent); }
+        .week-picker-container input { border: none; background: transparent; font-weight: bold; color: var(--accent); cursor: pointer; outline: none; }
 
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: fixed; }
         th { background: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -50,17 +52,24 @@
     <div class="header">
         <div>
             <h1>Daily Maintenance Log</h1>
-            <div id="sourceDisplay" style="font-size: 0.85rem; color: #888; margin-top: 5px;">Source: dailychecks.xlsx</div>
+            <div style="font-size: 0.85rem; color: #888; margin-top: 5px;">Source: dailychecks.xlsx</div>
         </div>
-        <div class="week-label" id="weekDisplay">Loading Dates...</div>
+        
+        <div class="week-picker-container">
+            <span>📅</span>
+            <input type="week" id="weekSelector">
+            <span id="dateRangeDisplay" style="font-size: 0.8rem; border-left: 1px solid var(--accent); padding-left: 10px; margin-left: 5px;"></span>
+        </div>
+
         <div class="file-upload">
-            Update Template: <input type="file" id="csvFile" accept=".csv">
+            Template: <input type="file" id="csvFile" accept=".csv">
         </div>
     </div>
 
     <div class="controls">
         <input type="text" id="searchInput" class="search-input" placeholder="Search tasks...">
-        <button id="exportBtn" class="btn btn-export">Download Weekly Report (CSV)</button>
+        <button id="todayBtn" class="btn btn-today">Current Week</button>
+        <button id="exportBtn" class="btn btn-export">Download CSV Report</button>
     </div>
     
     <table id="checklistTable">
@@ -68,12 +77,8 @@
             <tr>
                 <th class="col-task">Task Description</th>
                 <th class="col-time">Time</th>
-                <th class="col-day">Mon</th>
-                <th class="col-day">Tue</th>
-                <th class="col-day">Wed</th>
-                <th class="col-day">Thu</th>
-                <th class="col-day">Fri</th>
-                <th class="col-notes">Notes (Weekly)</th>
+                <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th>
+                <th class="col-notes">Notes</th>
             </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -88,48 +93,47 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    function getWeekInfo(d) {
-        const date = new Date(d);
-        const day = date.getDay();
-        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-        const mon = new Date(date.setDate(diff));
+    let currentWeekId = "";
+    let unsubscribe = null; // To clean up Firebase listeners
+
+    // --- DATE HELPERS ---
+    function getWeekData(dateObj) {
+        const d = new Date(dateObj);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(d.setDate(diff));
         const fri = new Date(new Date(mon).setDate(mon.getDate() + 4));
+        
         const tempDate = new Date(Date.UTC(mon.getFullYear(), mon.getMonth(), mon.getDate()));
         tempDate.setUTCDate(tempDate.getUTCDate() + 4 - (tempDate.getUTCDay() || 7));
         const yearStart = new Date(Date.UTC(tempDate.getUTCFullYear(), 0, 1));
         const weekNo = Math.ceil((((tempDate - yearStart) / 86400000) + 1) / 7);
-        return { weekNo, year: mon.getFullYear(), range: `${mon.toLocaleDateString(undefined, {month:'short', day:'numeric'})} - ${fri.toLocaleDateString(undefined, {month:'short', day:'numeric'})}` };
+
+        return {
+            weekNo,
+            year: mon.getFullYear(),
+            range: `${mon.toLocaleDateString(undefined, {month:'short', day:'numeric'})} - ${fri.toLocaleDateString(undefined, {month:'short', day:'numeric'})}`,
+            inputVal: `${mon.getFullYear()}-W${weekNo.toString().padStart(2, '0')}`
+        };
     }
 
-    const weekInfo = getWeekInfo(new Date());
-    const weekId = `${weekInfo.year}_W${weekInfo.weekNo}`;
-    document.getElementById('weekDisplay').innerText = `Week ${weekInfo.weekNo}, ${weekInfo.range}`;
+    // --- CORE LOGIC ---
+    function loadWeek(dateSource) {
+        const info = getWeekData(dateSource);
+        currentWeekId = `${info.year}_W${info.weekNo}`;
+        
+        document.getElementById('weekSelector').value = info.inputVal;
+        document.getElementById('dateRangeDisplay').innerText = info.range;
 
-    const tableBody = document.getElementById('tableBody');
+        // Clear table and re-sync
+        if (unsubscribe) unsubscribe();
+        loadTemplate();
+    }
 
     async function loadTemplate() {
         const snap = await getDoc(doc(db, "settings", "template"));
         if (snap.exists()) renderTable(snap.data().rows);
     }
-    loadTemplate();
-
-    document.getElementById('csvFile').addEventListener('change', function(e) {
-        if (!e.target.files[0]) return;
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            const lines = event.target.result.split('\n');
-            const rows = [];
-            for (let i = 2; i < lines.length; i++) {
-                const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-                if (cols[0] && !cols[0].includes('http')) {
-                    rows.push({ task: cols[0], time: cols[1] || '', daysData: [cols[2], cols[3], cols[4], cols[5], cols[6]], isHeader: (cols[1] === "" && !cols[2]) });
-                }
-            }
-            await setDoc(doc(db, "settings", "template"), { rows });
-            renderTable(rows);
-        };
-        reader.readAsText(e.target.files[0]);
-    });
 
     function renderTable(rows) {
         tableBody.innerHTML = '';
@@ -153,8 +157,12 @@
     }
 
     function syncWithFirebase() {
-        const docRef = doc(db, "weekly_checks", weekId);
-        onSnapshot(docRef, (snapshot) => {
+        // Clear previous checkboxes/notes locally before loading new week
+        document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+        document.querySelectorAll('.note-cell').forEach(n => n.innerText = "");
+
+        const docRef = doc(db, "weekly_checks", currentWeekId);
+        unsubscribe = onSnapshot(docRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
                 Object.keys(data).forEach(id => {
@@ -165,11 +173,43 @@
                 });
             }
         });
-        tableBody.onclick = async (e) => { if (e.target.type === 'checkbox') await setDoc(docRef, { [e.target.id]: e.target.checked }, { merge: true }); };
-        tableBody.addEventListener('focusout', async (e) => { if (e.target.classList.contains('note-cell')) await setDoc(docRef, { [e.target.id]: e.target.innerText }, { merge: true }); });
     }
 
-    // SEARCH LOGIC
+    // --- EVENT LISTENERS ---
+    document.getElementById('weekSelector').addEventListener('change', (e) => {
+        // Convert YYYY-WXX to a Date object
+        const [year, week] = e.target.value.split('-W');
+        const simpleDate = new Date(year, 0, 1 + (week - 1) * 7);
+        loadWeek(simpleDate);
+    });
+
+    document.getElementById('todayBtn').onclick = () => loadWeek(new Date());
+
+    document.getElementById('exportBtn').onclick = () => {
+        let csv = "Task,Time,Mon,Tue,Wed,Thu,Fri,Notes\n";
+        document.querySelectorAll('#tableBody tr:not(:has(.section-header))').forEach(row => {
+            const cols = [
+                `"${row.querySelector('.col-task').innerText}"`,
+                row.querySelector('.col-time').innerText,
+                ...Array.from(row.querySelectorAll('.col-day')).map(td => {
+                    const cb = td.querySelector('input');
+                    return cb ? (cb.checked ? "X" : "") : "N/A";
+                }),
+                `"${row.querySelector('.note-cell').innerText}"`
+            ];
+            csv += cols.join(",") + "\n";
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Log_${currentWeekId}.csv`;
+        a.click();
+    };
+
+    // Initialize
+    loadWeek(new Date());
+
+    // (Search and Template upload logic remain the same as previous version...)
     document.getElementById('searchInput').addEventListener('input', (e) => {
         const term = e.target.value.toLowerCase();
         document.querySelectorAll('#tableBody tr').forEach(row => {
@@ -178,26 +218,35 @@
         });
     });
 
-    // EXPORT LOGIC
-    document.getElementById('exportBtn').onclick = () => {
-        let csv = "Task,Time,Mon,Tue,Wed,Thu,Fri,Notes\n";
-        document.querySelectorAll('#tableBody tr').forEach(row => {
-            if (row.querySelector('.section-header')) return;
-            const cols = [
-                `"${row.querySelector('.col-task').innerText}"`,
-                row.querySelector('.col-time').innerText,
-                ...Array.from(row.querySelectorAll('input[type="checkbox"]')).map(cb => cb.checked ? "DONE" : ""),
-                `"${row.querySelector('.note-cell').innerText}"`
-            ];
-            csv += cols.join(",") + "\n";
-        });
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Report_${weekId}.csv`;
-        a.click();
+    document.getElementById('csvFile').addEventListener('change', function(e) {
+        if (!e.target.files[0]) return;
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const lines = event.target.result.split('\n');
+            const rows = [];
+            for (let i = 2; i < lines.length; i++) {
+                const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                if (cols[0] && !cols[0].includes('http')) {
+                    rows.push({ task: cols[0], time: cols[1] || '', daysData: [cols[2], cols[3], cols[4], cols[5], cols[6]], isHeader: (cols[1] === "" && !cols[2]) });
+                }
+            }
+            await setDoc(doc(db, "settings", "template"), { rows });
+            renderTable(rows);
+        };
+        reader.readAsText(e.target.files[0]);
+    });
+
+    tableBody.onclick = async (e) => { 
+        if (e.target.type === 'checkbox') {
+            await setDoc(doc(db, "weekly_checks", currentWeekId), { [e.target.id]: e.target.checked }, { merge: true });
+        }
     };
+    tableBody.addEventListener('focusout', async (e) => { 
+        if (e.target.classList.contains('note-cell')) {
+            await setDoc(doc(db, "weekly_checks", currentWeekId), { [e.target.id]: e.target.innerText }, { merge: true });
+        }
+    });
+
 </script>
 </body>
 </html>
