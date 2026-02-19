@@ -286,18 +286,41 @@
 
     document.getElementById('todayBtn').onclick = () => loadWeek(new Date());
 
+  
     document.getElementById('exportBtn').onclick = () => {
-        let csv = "Task,Time,Mon,Tue,Wed,Thu,Fri,Notes\n";
+        const dateRange = document.getElementById('dateRangeDisplay').innerText;
+        
+        // Get the metadata text safely
+        const lastUpdateText = document.getElementById('lastUpdateDisplay').innerText;
+        
+        // Build CSV Header Rows
+        let csv = `WEEK DATE RANGE,${dateRange}\n`;
+        csv += `${lastUpdateText.replace(/,/g, "")}\n\n`; // Includes "Last Change: Date by User"
+        csv += "Task,Time,Mon,Tue,Wed,Thu,Fri,Notes\n";
+
+        // Build Table Rows
         document.querySelectorAll('#tableBody tr:not(:has(.section-header))').forEach(r => {
-            const cols = [`"${r.querySelector('.col-task').innerText}"`, r.querySelector('.col-time').innerText, ...Array.from(r.querySelectorAll('.col-day')).map(td => {
-                const cb = td.querySelector('input');
-                if (td.classList.contains('na-cell')) return "N/A";
-                return cb.checked ? (td.classList.contains('has-issue') ? "ISSUE" : "DONE") : "";
-            }), `"${r.querySelector('.note-cell').innerText}"` ];
+            const cols = [
+                `"${r.querySelector('.col-task').innerText}"`, 
+                r.querySelector('.col-time').innerText, 
+                ...Array.from(r.querySelectorAll('.col-day')).map(td => {
+                    const cb = td.querySelector('input');
+                    if (td.classList.contains('na-cell')) return "N/A";
+                    return cb.checked ? (td.classList.contains('has-issue') ? "ISSUE" : "DONE") : "";
+                }), 
+                `"${r.querySelector('.note-cell').innerText}"` 
+            ];
             csv += cols.join(",") + "\n";
         });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `Log_${currentWeekId}.csv`; a.click();
+
+        // Create and Trigger Download
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a'); 
+        a.href = URL.createObjectURL(blob); 
+        a.download = `Log_${currentWeekId}.csv`; 
+        a.click();
     };
+
 
     loadWeek(new Date());
 </script>
