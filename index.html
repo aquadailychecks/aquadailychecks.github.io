@@ -33,9 +33,12 @@
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: fixed; }
         th { background: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; text-transform: uppercase; font-size: 0.75rem; color: #7f8c8d; }
         td { padding: 8px; border: 1px solid #dee2e6; vertical-align: middle; transition: background 0.2s; }
-        .col-task { text-align: left; width: 32%; font-weight: 500; }
+        
+        /* ADJUSTED COLUMN WIDTHS */
+        .col-task { text-align: left; width: 45%; font-weight: 500; } /* Wider */
         .col-time { text-align: center; width: 80px; color: #666; font-family: monospace; }
         .col-day { text-align: center; width: 65px; }
+        .col-notes { width: 15%; } /* 50% Less than before */
         
         tr:nth-child(even) { background-color: #fafafa; }
         input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; vertical-align: middle; }
@@ -46,7 +49,7 @@
         .has-issue input { accent-color: var(--danger); }
         
         .na-cell { color: #bbb; font-size: 0.7rem; font-weight: bold; text-align: center; }
-        .note-cell { min-height: 24px; padding: 6px; outline: none; word-wrap: break-word; text-align: left; border: 1px solid transparent; }
+        .note-cell { min-height: 24px; padding: 6px; outline: none; white-space: normal; word-wrap: break-word; text-align: left; border: 1px solid transparent; }
         .note-cell[contenteditable="true"]:focus { background: #fffde7; border: 1px solid #ffd600; border-radius: 4px; }
         
         .hidden { display: none; }
@@ -98,7 +101,7 @@
                 <th class="col-task">Task Description</th>
                 <th class="col-time">Time</th>
                 <th class="col-day">Mon</th><th class="col-day">Tue</th><th class="col-day">Wed</th><th class="col-day">Thu</th><th class="col-day">Fri</th>
-                <th>Notes</th>
+                <th class="col-notes">Notes</th>
             </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -185,7 +188,7 @@
                     const isNA = row.daysData[idx]?.toUpperCase() === "N/A";
                     h += isNA ? `<td class="col-day na-cell">N/A</td>` : `<td class="col-day checkbox-cell" data-cell-id="${id}"><input type="checkbox" id="${id}" ${isEditingEnabled?'':'disabled'}></td>`;
                 });
-                h += `<td><div class="note-cell" id="note_${i}" contenteditable="${isEditingEnabled}"></div></td>`;
+                h += `<td class="col-notes"><div class="note-cell" id="note_${i}" contenteditable="${isEditingEnabled}"></div></td>`;
                 tr.innerHTML = h;
             }
             tableBody.appendChild(tr);
@@ -263,7 +266,7 @@
 
     loadWeek(new Date());
 </script>
-      <div style="text-align: center; margin-top: 20px;">
+<div style="text-align: center; margin-top: 20px;">
     <a href="help.html" target="_blank" style="color: #999; font-size: 0.8rem; text-decoration: none;">View Admin Help Guide</a>
 </div>
 </body>
