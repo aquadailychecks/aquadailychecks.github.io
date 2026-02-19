@@ -39,24 +39,34 @@ const firebaseConfig = {
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-  const checklistDiv = document.getElementById('checklist');
+const checklistDiv = document.getElementById('checklist');
   const today = new Date().toISOString().split('T')[0];
 
-  // 1. Parse CSV (Excel Template)
   document.getElementById('csvFile').addEventListener('change', function(e) {
+    // FIX: Check if a file was actually selected
+    if (!e.target.files || e.target.files.length === 0) return;
+
     const reader = new FileReader();
     reader.onload = function() {
-      const lines = reader.result.split('\n').map(line => line.trim()).filter(line => line);
+      const lines = reader.result.split('\n')
+        .map(line => line.trim())
+        // FIX: Ignore empty lines or lines containing URLs/Paths
+        .filter(line => line && !line.includes('http') && !line.startsWith(','));
+      
       renderChecklist(lines);
     };
     reader.readAsText(e.target.files[0]);
   });
 
-  // 2. Render and Sync with Firebase
   async function renderChecklist(tasks) {
-    checklistDiv.innerHTML = '';
+    checklistDiv.innerHTML = 'Loading tasks...';
+    const fragment = document.createDocumentFragment();
+
     for (const taskName of tasks) {
-      const docId = `${today}_${taskName.replace(/\s+/g, '_')}`;
+      // FIX: Sanitize the Document ID (Remove / . # $ [ ])
+      const safeId = taskName.replace(/[\/.\#$\[\]]/g, '_').substring(0, 100);
+      const docId = `${today}_${safeId}`;
+      
       const docRef = doc(db, "daily_checks", docId);
       const docSnap = await getDoc(docRef);
       
@@ -69,16 +79,21 @@ const firebaseConfig = {
         <input type="checkbox" ${isChecked ? 'checked' : ''}>
       `;
 
-      // 3. Update Firebase on click
       const checkbox = item.querySelector('input');
       checkbox.onclick = async () => {
-        const newStatus = checkbox.checked;
-        await setDoc(docRef, { taskName, status: newStatus, date: today });
-        item.querySelector('span').className = newStatus ? 'completed' : '';
+        try {
+            await setDoc(docRef, { taskName, status: checkbox.checked, date: today });
+            item.querySelector('span').className = checkbox.checked ? 'completed' : '';
+        } catch (err) {
+            console.error("Firebase Save Error:", err);
+            alert("Could not save status. Check console.");
+        }
       };
 
-      checklistDiv.appendChild(item);
+      fragment.appendChild(item);
     }
+    checklistDiv.innerHTML = '';
+    checklistDiv.appendChild(fragment);
   }
 </script>
 </body>
