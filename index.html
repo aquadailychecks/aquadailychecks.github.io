@@ -2,32 +2,58 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Weekly Daily Check</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Maintenance Checks</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
-        th { background-color: #f8f9fa; font-weight: 600; }
-        .task-name { text-align: left; width: 40%; font-weight: 500; }
-        input[type="checkbox"] { transform: scale(1.5); cursor: pointer; }
-        .week-header { display: flex; justify-content: space-between; align-items: center; }
-        tr:hover { background-color: #f1f8ff; }
+        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --text: #333; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.1); }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--accent); padding-bottom: 15px; margin-bottom: 25px; }
+        h1 { margin: 0; font-size: 1.5rem; color: var(--primary); }
+        .week-label { font-weight: bold; color: var(--accent); background: #eafaf1; padding: 5px 15px; border-radius: 20px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { background: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 10px; border: 1px solid #dee2e6; }
+        
+        .col-task { text-align: left; width: 40%; font-weight: 500; }
+        .col-time { text-align: center; width: 100px; color: #666; font-family: monospace; }
+        .col-day { text-align: center; width: 80px; }
+        
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:hover { background-color: #f1f8e9; }
+        
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent); }
+        .section-header { background: #eceff1 !important; font-weight: bold; text-align: left !important; color: #455a64; }
+
+        .file-upload { font-size: 0.8rem; border: 1px dashed #ccc; padding: 10px; border-radius: 5px; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <div class="week-header">
-        <h2>Weekly Maintenance Check</h2>
-        <input type="file" id="csvFile" accept=".csv">
+<div class="container">
+    <div class="header">
+        <div>
+            <h1>Daily Maintenance Log</h1>
+            <div id="dateRange" style="font-size: 0.85rem; color: #888; margin-top: 5px;"></div>
+        </div>
+        <div class="week-label" id="weekDisplay">Week --</div>
+        <div class="file-upload">
+            Sync Template: <input type="file" id="csvFile" accept=".csv">
+        </div>
     </div>
     
     <table id="checklistTable">
         <thead>
             <tr>
-                <th class="task-name">Task Description</th>
-                <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th>
+                <th class="col-task">Task Description</th>
+                <th class="col-time">Time</th>
+                <th class="col-day">Mon</th>
+                <th class="col-day">Tue</th>
+                <th class="col-day">Wed</th>
+                <th class="col-day">Thu</th>
+                <th class="col-day">Fri</th>
             </tr>
         </thead>
         <tbody id="tableBody">
@@ -36,73 +62,94 @@
 </div>
 
 <script type="module">
+    import { firebaseConfig } from './firebase-config.js';
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    const firebaseConfig = { /* PASTE YOUR CONFIG HERE */ };
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Identify current week (e.g., "2026_W08")
     const now = new Date();
     const weekId = `${now.getFullYear()}_W${getWeekNumber(now)}`;
-    const docRef = doc(db, "weekly_checks", weekId);
+    document.getElementById('weekDisplay').innerText = `Week ${getWeekNumber(now)}, ${now.getFullYear()}`;
 
     const tableBody = document.getElementById('tableBody');
 
-    // 1. Handle File Upload
+    // 1. Initial Load of Task List
+    async function loadTemplate() {
+        const snap = await getDoc(doc(db, "settings", "template"));
+        if (snap.exists()) {
+            renderTable(snap.data().rows);
+        }
+    }
+    loadTemplate();
+
+    // 2. CSV Parser (Specific to your DailyChecks structure)
     document.getElementById('csvFile').addEventListener('change', function(e) {
         if (!e.target.files[0]) return;
         const reader = new FileReader();
-        reader.onload = (event) => {
-            const tasks = event.target.result.split('\n')
-                .map(t => t.trim())
-                .filter(t => t && !t.includes('http') && t.length > 3);
-            renderTable(tasks);
+        reader.onload = async (event) => {
+            const lines = event.target.result.split('\n');
+            const rows = [];
+            
+            // Start from index 2 based on your file structure
+            for (let i = 2; i < lines.length; i++) {
+                const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                if (cols[0] && !cols[0].includes('http')) {
+                    rows.push({
+                        task: cols[0],
+                        time: cols[1] || '',
+                        isHeader: (cols[1] === "" && i > 2) // Marks rows like "SQL Manager Tasks"
+                    });
+                }
+            }
+            await setDoc(doc(db, "settings", "template"), { rows });
+            renderTable(rows);
         };
         reader.readAsText(e.target.files[0]);
     });
 
-    // 2. Build the Grid
-    function renderTable(tasks) {
+    // 3. Render Table
+    function renderTable(rows) {
         tableBody.innerHTML = '';
-        tasks.forEach((task, index) => {
-            const row = document.createElement('tr');
-            let html = `<td class="task-name">${task}</td>`;
+        rows.forEach((row, index) => {
+            const tr = document.createElement('tr');
             
-            ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach(day => {
-                const cellId = `task${index}_${day}`;
-                html += `<td><input type="checkbox" id="${cellId}" data-task="${task}" data-day="${day}"></td>`;
-            });
-            
-            row.innerHTML = html;
-            tableBody.appendChild(row);
+            if (row.isHeader) {
+                tr.innerHTML = `<td colspan="7" class="section-header">${row.task}</td>`;
+            } else {
+                let html = `<td class="col-task">${row.task}</td><td class="col-time">${row.time}</td>`;
+                ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach(day => {
+                    const cellId = `r${index}_${day}`;
+                    html += `<td class="col-day"><input type="checkbox" id="${cellId}"></td>`;
+                });
+                tr.innerHTML = html;
+            }
+            tableBody.appendChild(tr);
         });
-
-        setupSync();
+        syncCheckboxes();
     }
 
-    // 3. Real-time Sync with Firebase
-    function setupSync() {
-        // Listen for changes from Database
+    // 4. Firebase Real-time Sync
+    function syncCheckboxes() {
+        const docRef = doc(db, "weekly_checks", weekId);
         onSnapshot(docRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
-                Object.keys(data).forEach(cellId => {
-                    const el = document.getElementById(cellId);
-                    if (el) el.checked = data[cellId];
+                Object.keys(data).forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.checked = data[id];
                 });
             }
         });
 
-        // Save changes to Database
-        tableBody.addEventListener('click', async (e) => {
+        tableBody.onclick = async (e) => {
             if (e.target.type === 'checkbox') {
                 const update = {};
                 update[e.target.id] = e.target.checked;
                 await setDoc(docRef, update, { merge: true });
             }
-        });
+        };
     }
 
     function getWeekNumber(d) {
