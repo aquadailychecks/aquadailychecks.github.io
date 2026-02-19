@@ -5,41 +5,57 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weekly Maintenance Log</title>
     <style>
-        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --text: #333; }
+        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --text: #333; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
-        .container { max-width: 1300px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.1); }
+        .container { max-width: 1450px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.1); }
         
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--accent); padding-bottom: 15px; margin-bottom: 25px; }
-        h1 { margin: 0; font-size: 1.5rem; color: var(--primary); }
-        .week-label { font-weight: bold; color: var(--accent); background: #eafaf1; padding: 8px 20px; border-radius: 20px; border: 1px solid var(--accent); }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--accent); padding-bottom: 15px; margin-bottom: 15px; }
+        h1 { margin: 0; font-size: 1.4rem; color: var(--primary); }
+        
+        /* Legend & Info */
+        .legend { display: flex; gap: 20px; margin-top: 10px; font-size: 0.85rem; color: #666; }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .box { width: 14px; height: 14px; border: 1px solid #ccc; border-radius: 3px; }
 
+        /* Security UI */
+        .admin-controls { background: #fdfdfd; border: 1px solid #ddd; padding: 12px; border-radius: 8px; display: flex; gap: 8px; align-items: center; }
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
+        .status-locked { background: #eee; color: #777; }
+        .status-unlocked { background: var(--accent); color: white; }
+        .admin-controls input { padding: 6px; font-size: 0.8rem; border: 1px solid #ddd; border-radius: 4px; outline: none; }
+        #loginID { width: 110px; background: #fffde7; }
+        #adminPass { width: 100px; }
+
+        /* Meta Bar */
+        .meta-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px 15px; background: #f8f9fa; border-radius: 6px; font-size: 0.85rem; border-left: 4px solid #3498db; }
+        
+        .week-picker-container { display: flex; align-items: center; gap: 10px; background: #eafaf1; padding: 5px 15px; border-radius: 20px; border: 1px solid var(--accent); font-weight: bold; color: var(--accent); }
+        .week-picker-container input { border: none; background: transparent; outline: none; color: var(--accent); font-weight: bold; font-size: 0.9rem; }
+
+        /* Table */
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: fixed; }
-        th { background: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; text-transform: uppercase; letter-spacing: 0.5px; }
-        td { padding: 8px; border: 1px solid #dee2e6; overflow: hidden; }
-        
-        .col-task { text-align: left; width: 35%; font-weight: 500; }
+        th { background: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; text-transform: uppercase; font-size: 0.75rem; color: #7f8c8d; }
+        td { padding: 8px; border: 1px solid #dee2e6; vertical-align: middle; transition: background 0.2s; }
+        .col-task { text-align: left; width: 32%; font-weight: 500; }
         .col-time { text-align: center; width: 80px; color: #666; font-family: monospace; }
-        .col-day { text-align: center; width: 60px; }
-        .col-notes { width: 25%; }
+        .col-day { text-align: center; width: 65px; }
         
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        tr:hover { background-color: #f1f8e9; }
+        tr:nth-child(even) { background-color: #fafafa; }
+        input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; vertical-align: middle; }
+        input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.4; }
         
-        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent); }
-        .section-header { background: #eceff1 !important; font-weight: bold; text-align: left !important; color: #455a64; padding-left: 15px; }
-
-        .note-cell { 
-            min-height: 20px; 
-            padding: 5px; 
-            background: transparent; 
-            outline: none; 
-            word-wrap: break-word; 
-            transition: background 0.2s;
-            text-align: left;
-        }
-        .note-cell:focus { background: #fffde7; border-radius: 4px; box-shadow: inset 0 0 0 1px #ffd600; }
+        .section-header { background: #eceff1 !important; font-weight: bold; color: #455a64; padding-left: 15px; height: 40px; }
         
-        .file-upload { font-size: 0.8rem; border: 1px dashed #ccc; padding: 10px; border-radius: 5px; color: #777; }
+        /* THE RED BACKGROUND ISSUE STATE */
+        .has-issue { background-color: #ffcccc !important; border: 2px solid var(--danger) !important; }
+        .has-issue input { accent-color: var(--danger); }
+        
+        .na-cell { color: #bbb; font-size: 0.7rem; font-weight: bold; text-align: center; }
+        .note-cell { min-height: 24px; padding: 6px; outline: none; word-wrap: break-word; text-align: left; border: 1px solid transparent; }
+        .note-cell[contenteditable="true"]:focus { background: #fffde7; border: 1px solid #ffd600; border-radius: 4px; }
+        
+        .hidden { display: none; }
+        .btn { border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-weight: bold; transition: 0.2s; }
     </style>
 </head>
 <body>
@@ -48,11 +64,33 @@
     <div class="header">
         <div>
             <h1>Daily Maintenance Log</h1>
-            <div id="dateRange" style="font-size: 0.85rem; color: #888; margin-top: 5px;">Source: dailychecks.xlsx</div>
+            <div class="legend">
+                <div class="legend-item"><div class="box" style="background:white;"></div> Left-Click: Complete Task</div>
+                <div class="legend-item"><div class="box" style="background:#ffcccc; border-color:var(--danger);"></div> Right-Click: Mark Issue/Rerun</div>
+                <div class="legend-item"><span class="na-cell">N/A</span> Not Required</div>
+            </div>
         </div>
-        <div class="week-label" id="weekDisplay">Week --</div>
-        <div class="file-upload">
-            Update Template: <input type="file" id="csvFile" accept=".csv">
+
+        <div class="admin-controls">
+            <span id="lockStatus" class="status-badge status-locked">Read Only</span>
+            <input type="text" id="loginID" placeholder="Login ID (e.g. JSMITH)">
+            <input type="password" id="adminPass" placeholder="Admin Code">
+            <button id="unlockBtn" class="btn" style="background:#3498db; color:white;">Unlock</button>
+            <input type="file" id="csvFile" accept=".csv" style="display:none">
+            <button id="uploadBtn" class="btn" style="background:#95a5a6; color:white; display:none;">Update Template</button>
+        </div>
+    </div>
+
+    <div class="meta-bar">
+        <div id="lastUpdateDisplay">Syncing with database...</div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <div class="week-picker-container">
+                <input type="week" id="weekSelector">
+                <span id="dateRangeDisplay"></span>
+            </div>
+            <input type="text" id="searchInput" placeholder="🔍 Search..." style="padding:6px 10px; border-radius:4px; border:1px solid #ccc;">
+            <button id="todayBtn" class="btn">Today</button>
+            <button id="exportBtn" class="btn" style="background:var(--primary); color:white;">📥 Export</button>
         </div>
     </div>
     
@@ -61,145 +99,207 @@
             <tr>
                 <th class="col-task">Task Description</th>
                 <th class="col-time">Time</th>
-                <th class="col-day">Mon</th>
-                <th class="col-day">Tue</th>
-                <th class="col-day">Wed</th>
-                <th class="col-day">Thu</th>
-                <th class="col-day">Fri</th>
-                <th class="col-notes">Notes (Weekly)</th>
+                <th class="col-day">Mon</th><th class="col-day">Tue</th><th class="col-day">Wed</th><th class="col-day">Thu</th><th class="col-day">Fri</th>
+                <th>Notes</th>
             </tr>
         </thead>
-        <tbody id="tableBody">
-            </tbody>
+        <tbody id="tableBody"></tbody>
     </table>
 </div>
 
 <script type="module">
     import { firebaseConfig } from './firebase-config.js';
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, onSnapshot, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Generate Week ID (e.g., 2026_W08)
-    const now = new Date();
-    const weekNo = getWeekNumber(now);
-    const weekId = `${now.getFullYear()}_W${weekNo}`;
-    document.getElementById('weekDisplay').innerText = `Week ${weekNo}, ${now.getFullYear()}`;
+    let currentWeekId = "";
+    let isEditingEnabled = false;
+    let unsubscribe = null;
 
-    const tableBody = document.getElementById('tableBody');
+    // --- UNLOCK LOGIC ---
+    document.getElementById('unlockBtn').onclick = async () => {
+        const login = document.getElementById('loginID').value.trim();
+        const pass = document.getElementById('adminPass').value;
+        if (!login) { alert("Enter Login ID first"); return; }
 
-    // 1. Initial Load: Get the list of tasks from the "settings" collection
+        const snap = await getDoc(doc(db, "settings", "security"));
+        const master = snap.exists() ? snap.data().adminCode : null;
+
+        if (pass === master) {
+            isEditingEnabled = true;
+            document.getElementById('lockStatus').innerText = "Editor: " + login;
+            document.getElementById('lockStatus').className = "status-badge status-unlocked";
+            document.getElementById('uploadBtn').style.display = "inline-block";
+            // Re-render to enable inputs
+            loadTemplate(); 
+        } else {
+            alert("Incorrect Admin Code.");
+        }
+    };
+
+    // --- PERSISTENCE ---
+    async function saveData(updateObj) {
+        if (!isEditingEnabled) return;
+        const login = document.getElementById('loginID').value || "Unknown";
+        const docRef = doc(db, "weekly_checks", currentWeekId);
+        
+        const payload = {
+            ...updateObj,
+            meta: { lastBy: login, lastAt: new Date().toLocaleString(), serverTime: serverTimestamp() }
+        };
+        await setDoc(docRef, payload, { merge: true });
+    }
+
+    // --- DATE CALCULATIONS ---
+    function getWeekInfo(d) {
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(d.setDate(diff));
+        const fri = new Date(new Date(mon).setDate(mon.getDate() + 4));
+        const temp = new Date(Date.UTC(mon.getFullYear(), mon.getMonth(), mon.getDate()));
+        temp.setUTCDate(temp.getUTCDate() + 4 - (temp.getUTCDay() || 7));
+        const weekNo = Math.ceil((((temp - new Date(Date.UTC(temp.getUTCFullYear(), 0, 1))) / 86400000) + 1) / 7);
+        return { 
+            id: `${mon.getFullYear()}_W${weekNo}`, 
+            range: `${mon.toLocaleDateString(undefined, {month:'short', day:'numeric'})} - ${fri.toLocaleDateString(undefined, {month:'short', day:'numeric'})}`,
+            input: `${mon.getFullYear()}-W${weekNo.toString().padStart(2,'0')}`
+        };
+    }
+
+    function loadWeek(date) {
+        const info = getWeekInfo(new Date(date));
+        currentWeekId = info.id;
+        document.getElementById('weekSelector').value = info.input;
+        document.getElementById('dateRangeDisplay').innerText = info.range;
+        if (unsubscribe) unsubscribe();
+        loadTemplate();
+    }
+
     async function loadTemplate() {
         const snap = await getDoc(doc(db, "settings", "template"));
-        if (snap.exists()) {
-            renderTable(snap.data().rows);
-        }
+        if (snap.exists()) renderTable(snap.data().rows);
     }
-    loadTemplate();
 
-    // 2. CSV Upload: Convert Excel CSV to the Task List
-    document.getElementById('csvFile').addEventListener('change', function(e) {
-        if (!e.target.files[0]) return;
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            const lines = event.target.result.split('\n');
-            const rows = [];
-            
-            for (let i = 2; i < lines.length; i++) {
-                const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-                if (cols[0] && !cols[0].includes('http')) {
-                    rows.push({
-                        task: cols[0],
-                        time: cols[1] || '',
-                        daysData: [cols[2], cols[3], cols[4], cols[5], cols[6]],
-                        isHeader: (cols[1] === "" && !cols[2])
-                    });
-                }
-            }
-            await setDoc(doc(db, "settings", "template"), { rows });
-            renderTable(rows);
-        };
-        reader.readAsText(e.target.files[0]);
-    });
-
-    // 3. Render Table with N/A and Notes
     function renderTable(rows) {
+        const tableBody = document.getElementById('tableBody');
         tableBody.innerHTML = '';
-        rows.forEach((row, rowIndex) => {
+        rows.forEach((row, i) => {
             const tr = document.createElement('tr');
-            
             if (row.isHeader) {
                 tr.innerHTML = `<td colspan="8" class="section-header">${row.task}</td>`;
             } else {
-                let html = `<td class="col-task">${row.task}</td><td class="col-time">${row.time}</td>`;
-                
-                // Mon-Fri Columns
-                ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach((day, dIdx) => {
-                    const cellId = `r${rowIndex}_${day}`;
-                    const rawVal = row.daysData ? row.daysData[dIdx] : "";
-                    
-                    if (rawVal && rawVal.toUpperCase() === "N/A") {
-                        html += `<td class="col-day" style="color: #bbb; font-size: 0.7rem;">N/A</td>`;
-                    } else {
-                        html += `<td class="col-day"><input type="checkbox" id="${cellId}"></td>`;
-                    }
+                let h = `<td class="col-task">${row.task}</td><td class="col-time">${row.time}</td>`;
+                ['Mon','Tue','Wed','Thu','Fri'].forEach((d, idx) => {
+                    const id = `r${i}_${d}`;
+                    const isNA = row.daysData[idx]?.toUpperCase() === "N/A";
+                    h += isNA ? `<td class="col-day na-cell">N/A</td>` : `<td class="col-day checkbox-cell" data-cell-id="${id}"><input type="checkbox" id="${id}" ${isEditingEnabled?'':'disabled'}></td>`;
                 });
-
-                // Notes Column (Editable)
-                const noteId = `note_${rowIndex}`;
-                html += `<td class="col-notes"><div contenteditable="true" class="note-cell" id="${noteId}"></div></td>`;
-                
-                tr.innerHTML = html;
+                h += `<td><div class="note-cell" id="note_${i}" contenteditable="${isEditingEnabled}"></div></td>`;
+                tr.innerHTML = h;
             }
             tableBody.appendChild(tr);
         });
         syncWithFirebase();
     }
 
-    // 4. Persistence: Sync checkboxes and notes to the current Week Document
     function syncWithFirebase() {
-        const docRef = doc(db, "weekly_checks", weekId);
+        const docRef = doc(db, "weekly_checks", currentWeekId);
+        unsubscribe = onSnapshot(docRef, (snap) => {
+            if (snap.exists()) {
+                const data = snap.data();
+                if (data.meta) document.getElementById('lastUpdateDisplay').innerHTML = `<b>Last Change:</b> ${data.meta.lastAt} by <u>${data.meta.lastBy}</u>`;
 
-        // Receive Updates
-        onSnapshot(docRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.data();
-                Object.keys(data).forEach(id => {
-                    const el = document.getElementById(id);
-                    if (!el) return;
-                    if (el.type === 'checkbox') {
-                        el.checked = data[id];
-                    } else if (el.getAttribute('contenteditable')) {
-                        // Only update text if the user isn't currently editing it
-                        if (document.activeElement !== el) el.innerText = data[id];
+                // Logic fix: iterate through all possible checkboxes on screen
+                document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                    const id = cb.id;
+                    if (data[id] !== undefined) cb.checked = data[id];
+                    // Correctly toggle the Red Background (Issue State)
+                    const isIssue = data[id + "_issue"] || false;
+                    cb.closest('td').classList.toggle('has-issue', isIssue);
+                });
+
+                // Update Notes
+                document.querySelectorAll('.note-cell').forEach(note => {
+                    if (data[note.id] !== undefined && document.activeElement !== note) {
+                        note.innerText = data[note.id];
                     }
                 });
             }
         });
+    }
 
-        // Save Checkbox Changes
-        tableBody.onclick = async (e) => {
-            if (e.target.type === 'checkbox') {
-                await setDoc(docRef, { [e.target.id]: e.target.checked }, { merge: true });
-            }
+    // --- INTERACTION ---
+    const tableBody = document.getElementById('tableBody');
+    
+    // Left Click Toggle
+    tableBody.onclick = (e) => {
+        if (isEditingEnabled && e.target.type === 'checkbox') {
+            saveData({ [e.target.id]: e.target.checked });
+        }
+    };
+
+    // Right Click Toggle (Red Background)
+    tableBody.oncontextmenu = (e) => {
+        const td = e.target.closest('.checkbox-cell');
+        if (!isEditingEnabled || !td) return;
+        e.preventDefault();
+        const cb = td.querySelector('input');
+        const issueKey = cb.id + "_issue";
+        const currentlyHasIssue = td.classList.contains('has-issue');
+        saveData({ [issueKey]: !currentlyHasIssue });
+    };
+
+    // Notes Save
+    tableBody.addEventListener('focusout', (e) => {
+        if (isEditingEnabled && e.target.classList.contains('note-cell')) {
+            saveData({ [e.target.id]: e.target.innerText });
+        }
+    });
+
+    // Helper Buttons
+    document.getElementById('uploadBtn').onclick = () => document.getElementById('csvFile').click();
+    document.getElementById('csvFile').onchange = (e) => {
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            const rows = ev.target.result.split('\n').slice(2).map(line => {
+                const c = line.split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+                return c[0] ? { task: c[0], time: c[1]||'', daysData: [c[2],c[3],c[4],c[5],c[6]], isHeader: (!c[1] && !c[2]) } : null;
+            }).filter(x => x);
+            await setDoc(doc(db, "settings", "template"), { rows });
+            location.reload();
         };
+        reader.readAsText(e.target.files[0]);
+    };
 
-        // Save Notes Changes (When user clicks out of the cell)
-        tableBody.addEventListener('focusout', async (e) => {
-            if (e.target.classList.contains('note-cell')) {
-                await setDoc(docRef, { [e.target.id]: e.target.innerText }, { merge: true });
-            }
+    document.getElementById('searchInput').oninput = (e) => {
+        const val = e.target.value.toLowerCase();
+        document.querySelectorAll('#tableBody tr').forEach(r => r.classList.toggle('hidden', val && !r.innerText.toLowerCase().includes(val) && !r.querySelector('.section-header')));
+    };
+
+    document.getElementById('weekSelector').onchange = (e) => {
+        const [y, w] = e.target.value.split('-W');
+        loadWeek(new Date(y, 0, 1 + (w - 1) * 7));
+    };
+
+    document.getElementById('todayBtn').onclick = () => loadWeek(new Date());
+
+    document.getElementById('exportBtn').onclick = () => {
+        let csv = "Task,Time,Mon,Tue,Wed,Thu,Fri,Notes\n";
+        document.querySelectorAll('#tableBody tr:not(:has(.section-header))').forEach(r => {
+            const cols = [`"${r.querySelector('.col-task').innerText}"`, r.querySelector('.col-time').innerText, ...Array.from(r.querySelectorAll('.col-day')).map(td => {
+                const cb = td.querySelector('input');
+                if (td.classList.contains('na-cell')) return "N/A";
+                return cb.checked ? (td.classList.contains('has-issue') ? "ISSUE" : "DONE") : "";
+            }), `"${r.querySelector('.note-cell').innerText}"` ];
+            csv += cols.join(",") + "\n";
         });
-    }
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `Log_${currentWeekId}.csv`; a.click();
+    };
 
-    function getWeekNumber(d) {
-        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-        var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    }
+    loadWeek(new Date());
 </script>
 </body>
 </html>
