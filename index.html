@@ -11,6 +11,15 @@
         
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--accent); padding-bottom: 15px; margin-bottom: 25px; }
         h1 { margin: 0; font-size: 1.5rem; color: var(--primary); }
+        
+        .controls { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .search-input { padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px; width: 300px; outline: none; }
+        .search-input:focus { border-color: var(--accent); }
+
+        .btn { padding: 8px 15px; border-radius: 5px; cursor: pointer; border: none; font-weight: bold; transition: 0.2s; }
+        .btn-export { background: var(--primary); color: white; }
+        .btn-export:hover { background: #34495e; }
+
         .week-label { font-weight: bold; color: var(--accent); background: #eafaf1; padding: 8px 20px; border-radius: 20px; border: 1px solid var(--accent); white-space: nowrap; }
 
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: fixed; }
@@ -24,23 +33,15 @@
         
         tr:nth-child(even) { background-color: #f9f9f9; }
         tr:hover { background-color: #f1f8e9; }
+        tr.hidden { display: none; }
         
         input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent); }
         .section-header { background: #eceff1 !important; font-weight: bold; text-align: left !important; color: #455a64; padding-left: 15px; }
 
-        .note-cell { 
-            min-height: 20px; 
-            padding: 5px; 
-            background: transparent; 
-            outline: none; 
-            word-wrap: break-word; 
-            transition: background 0.2s;
-            text-align: left;
-            border: 1px solid transparent;
-        }
-        .note-cell:focus { background: #fffde7; border-radius: 4px; border: 1px solid #ffd600; box-shadow: inset 0 0 4px rgba(0,0,0,0.05); }
+        .note-cell { min-height: 20px; padding: 5px; outline: none; word-wrap: break-word; text-align: left; border: 1px solid transparent; }
+        .note-cell:focus { background: #fffde7; border: 1px solid #ffd600; }
         
-        .file-upload { font-size: 0.8rem; border: 1px dashed #ccc; padding: 10px; border-radius: 5px; color: #777; }
+        .file-upload { font-size: 0.8rem; color: #777; }
     </style>
 </head>
 <body>
@@ -51,10 +52,15 @@
             <h1>Daily Maintenance Log</h1>
             <div id="sourceDisplay" style="font-size: 0.85rem; color: #888; margin-top: 5px;">Source: dailychecks.xlsx</div>
         </div>
-        <div class="week-label" id="weekDisplay">Week --, Loading Dates...</div>
+        <div class="week-label" id="weekDisplay">Loading Dates...</div>
         <div class="file-upload">
             Update Template: <input type="file" id="csvFile" accept=".csv">
         </div>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search tasks...">
+        <button id="exportBtn" class="btn btn-export">Download Weekly Report (CSV)</button>
     </div>
     
     <table id="checklistTable">
@@ -70,8 +76,7 @@
                 <th class="col-notes">Notes (Weekly)</th>
             </tr>
         </thead>
-        <tbody id="tableBody">
-            </tbody>
+        <tbody id="tableBody"></tbody>
     </table>
 </div>
 
@@ -83,26 +88,17 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // --- DATE & WEEK CALCULATION ---
     function getWeekInfo(d) {
         const date = new Date(d);
         const day = date.getDay();
-        // Adjust to Monday
         const diff = date.getDate() - day + (day === 0 ? -6 : 1);
         const mon = new Date(date.setDate(diff));
         const fri = new Date(new Date(mon).setDate(mon.getDate() + 4));
-        
-        // Calculate Week Number
         const tempDate = new Date(Date.UTC(mon.getFullYear(), mon.getMonth(), mon.getDate()));
         tempDate.setUTCDate(tempDate.getUTCDate() + 4 - (tempDate.getUTCDay() || 7));
         const yearStart = new Date(Date.UTC(tempDate.getUTCFullYear(), 0, 1));
         const weekNo = Math.ceil((((tempDate - yearStart) / 86400000) + 1) / 7);
-
-        return {
-            weekNo,
-            year: mon.getFullYear(),
-            range: `${mon.toLocaleDateString(undefined, {month:'short', day:'numeric'})} - ${fri.toLocaleDateString(undefined, {month:'short', day:'numeric'})}`
-        };
+        return { weekNo, year: mon.getFullYear(), range: `${mon.toLocaleDateString(undefined, {month:'short', day:'numeric'})} - ${fri.toLocaleDateString(undefined, {month:'short', day:'numeric'})}` };
     }
 
     const weekInfo = getWeekInfo(new Date());
@@ -111,33 +107,22 @@
 
     const tableBody = document.getElementById('tableBody');
 
-    // 1. Initial Load: Get Task Template
     async function loadTemplate() {
         const snap = await getDoc(doc(db, "settings", "template"));
-        if (snap.exists()) {
-            renderTable(snap.data().rows);
-        }
+        if (snap.exists()) renderTable(snap.data().rows);
     }
     loadTemplate();
 
-    // 2. CSV Upload: Convert CSV to Template
     document.getElementById('csvFile').addEventListener('change', function(e) {
         if (!e.target.files[0]) return;
         const reader = new FileReader();
         reader.onload = async (event) => {
             const lines = event.target.result.split('\n');
             const rows = [];
-            
-            // Skipping first two header lines of your specific CSV
             for (let i = 2; i < lines.length; i++) {
                 const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
                 if (cols[0] && !cols[0].includes('http')) {
-                    rows.push({
-                        task: cols[0],
-                        time: cols[1] || '',
-                        daysData: [cols[2], cols[3], cols[4], cols[5], cols[6]],
-                        isHeader: (cols[1] === "" && !cols[2])
-                    });
+                    rows.push({ task: cols[0], time: cols[1] || '', daysData: [cols[2], cols[3], cols[4], cols[5], cols[6]], isHeader: (cols[1] === "" && !cols[2]) });
                 }
             }
             await setDoc(doc(db, "settings", "template"), { rows });
@@ -146,33 +131,20 @@
         reader.readAsText(e.target.files[0]);
     });
 
-    // 3. Render Table
     function renderTable(rows) {
         tableBody.innerHTML = '';
         rows.forEach((row, rowIndex) => {
             const tr = document.createElement('tr');
-            
             if (row.isHeader) {
                 tr.innerHTML = `<td colspan="8" class="section-header">${row.task}</td>`;
             } else {
                 let html = `<td class="col-task">${row.task}</td><td class="col-time">${row.time}</td>`;
-                
-                // Day Checkboxes + N/A Logic
                 ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach((day, dIdx) => {
                     const cellId = `r${rowIndex}_${day}`;
                     const rawVal = row.daysData ? row.daysData[dIdx] : "";
-                    
-                    if (rawVal && rawVal.toUpperCase() === "N/A") {
-                        html += `<td class="col-day" style="color: #bbb; font-size: 0.7rem;">N/A</td>`;
-                    } else {
-                        html += `<td class="col-day"><input type="checkbox" id="${cellId}"></td>`;
-                    }
+                    html += (rawVal.toUpperCase() === "N/A") ? `<td class="col-day" style="color:#bbb; font-size:0.7rem;">N/A</td>` : `<td class="col-day"><input type="checkbox" id="${cellId}"></td>`;
                 });
-
-                // Weekly Note Cell
-                const noteId = `note_${rowIndex}`;
-                html += `<td class="col-notes"><div contenteditable="true" class="note-cell" id="${noteId}"></div></td>`;
-                
+                html += `<td class="col-notes"><div contenteditable="true" class="note-cell" id="note_${rowIndex}"></div></td>`;
                 tr.innerHTML = html;
             }
             tableBody.appendChild(tr);
@@ -180,41 +152,52 @@
         syncWithFirebase();
     }
 
-    // 4. Firebase Sync (Scoped to WeekID)
     function syncWithFirebase() {
         const docRef = doc(db, "weekly_checks", weekId);
-
-        // Load and Listen for real-time updates
         onSnapshot(docRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
                 Object.keys(data).forEach(id => {
                     const el = document.getElementById(id);
                     if (!el) return;
-                    if (el.type === 'checkbox') {
-                        el.checked = data[id];
-                    } else if (el.getAttribute('contenteditable')) {
-                        // Prevent cursor jump by only updating if not active
-                        if (document.activeElement !== el) el.innerText = data[id];
-                    }
+                    if (el.type === 'checkbox') el.checked = data[id];
+                    else if (el.getAttribute('contenteditable') && document.activeElement !== el) el.innerText = data[id];
                 });
             }
         });
-
-        // Save Checkbox Click
-        tableBody.onclick = async (e) => {
-            if (e.target.type === 'checkbox') {
-                await setDoc(docRef, { [e.target.id]: e.target.checked }, { merge: true });
-            }
-        };
-
-        // Save Note on Focus Out
-        tableBody.addEventListener('focusout', async (e) => {
-            if (e.target.classList.contains('note-cell')) {
-                await setDoc(docRef, { [e.target.id]: e.target.innerText }, { merge: true });
-            }
-        });
+        tableBody.onclick = async (e) => { if (e.target.type === 'checkbox') await setDoc(docRef, { [e.target.id]: e.target.checked }, { merge: true }); };
+        tableBody.addEventListener('focusout', async (e) => { if (e.target.classList.contains('note-cell')) await setDoc(docRef, { [e.target.id]: e.target.innerText }, { merge: true }); });
     }
+
+    // SEARCH LOGIC
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        document.querySelectorAll('#tableBody tr').forEach(row => {
+            const text = row.querySelector('.col-task')?.innerText.toLowerCase() || "";
+            row.classList.toggle('hidden', term !== "" && !text.includes(term) && !row.querySelector('.section-header'));
+        });
+    });
+
+    // EXPORT LOGIC
+    document.getElementById('exportBtn').onclick = () => {
+        let csv = "Task,Time,Mon,Tue,Wed,Thu,Fri,Notes\n";
+        document.querySelectorAll('#tableBody tr').forEach(row => {
+            if (row.querySelector('.section-header')) return;
+            const cols = [
+                `"${row.querySelector('.col-task').innerText}"`,
+                row.querySelector('.col-time').innerText,
+                ...Array.from(row.querySelectorAll('input[type="checkbox"]')).map(cb => cb.checked ? "DONE" : ""),
+                `"${row.querySelector('.note-cell').innerText}"`
+            ];
+            csv += cols.join(",") + "\n";
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Report_${weekId}.csv`;
+        a.click();
+    };
 </script>
 </body>
 </html>
