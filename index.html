@@ -3,30 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weekly Maintenance Log</title>
+    <title>Aqua Morning Checks</title>
     <style>
-        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --text: #333; }
+        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --text: #333; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
         .container { max-width: 1450px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.1); }
         
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--accent); padding-bottom: 15px; margin-bottom: 25px; }
+        /* Header & Legend */
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--accent); padding-bottom: 15px; margin-bottom: 25px; }
         h1 { margin: 0; font-size: 1.5rem; color: var(--primary); }
-        
-        .controls { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
-        .search-input { padding: 10px 15px; border: 1px solid #ddd; border-radius: 5px; width: 300px; outline: none; font-size: 0.9rem; }
-        .search-input:focus { border-color: var(--accent); }
-
-        .btn { padding: 10px 20px; border-radius: 5px; cursor: pointer; border: none; font-weight: bold; transition: 0.2s; font-size: 0.85rem; }
-        .btn-export { background: var(--primary); color: white; }
-        .btn-today { background: #eee; color: var(--primary); }
-        .btn:hover { opacity: 0.8; }
+        .legend { display: flex; gap: 15px; margin-top: 10px; font-size: 0.8rem; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .box { width: 12px; height: 12px; border-radius: 2px; border: 1px solid #ccc; }
 
         .week-picker-container { display: flex; align-items: center; gap: 10px; background: #eafaf1; padding: 8px 15px; border-radius: 20px; border: 1px solid var(--accent); }
         .week-picker-container input { border: none; background: transparent; font-weight: bold; color: var(--accent); cursor: pointer; outline: none; font-size: 1rem; }
 
+        /* Controls */
+        .controls { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .search-input { padding: 10px 15px; border: 1px solid #ddd; border-radius: 5px; width: 300px; outline: none; }
+        .btn { padding: 10px 20px; border-radius: 5px; cursor: pointer; border: none; font-weight: bold; font-size: 0.85rem; }
+        .btn-export { background: var(--primary); color: white; }
+        .btn-today { background: #eee; color: var(--primary); }
+
+        /* Table Styling */
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: fixed; }
-        th { background: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; text-transform: uppercase; letter-spacing: 0.5px; }
-        td { padding: 8px; border: 1px solid #dee2e6; overflow: hidden; vertical-align: middle; }
+        th { background: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; text-transform: uppercase; }
+        td { padding: 8px; border: 1px solid #dee2e6; vertical-align: middle; transition: background 0.3s; }
         
         .col-task { text-align: left; width: 32%; font-weight: 500; }
         .col-time { text-align: center; width: 85px; color: #666; font-family: monospace; }
@@ -34,19 +37,21 @@
         .col-notes { width: 28%; }
         
         tr:nth-child(even) { background-color: #f9f9f9; }
-        tr:hover { background-color: #f1f8e9; }
         tr.hidden { display: none; }
         
-        input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
-        .section-header { background: #eceff1 !important; font-weight: bold; text-align: left !important; color: #455a64; padding-left: 15px; font-size: 1rem; }
+        input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+        .section-header { background: #eceff1 !important; font-weight: bold; color: #455a64; padding-left: 15px; }
 
-        .note-cell { min-height: 24px; padding: 6px; outline: none; word-wrap: break-word; text-align: left; border: 1px solid transparent; border-radius: 4px; }
-        .note-cell:focus { background: #fffde7; border: 1px solid #ffd600; box-shadow: 0 0 5px rgba(255, 214, 0, 0.3); }
+        /* Issues & States */
+        .has-issue { background-color: #ffcccc !important; border: 2px solid var(--danger) !important; }
+        .has-issue input { accent-color: var(--danger); }
+        .na-cell { color: #bbb; font-size: 0.7rem; font-weight: bold; }
+
+        .note-cell { min-height: 24px; padding: 6px; outline: none; word-wrap: break-word; text-align: left; border: 1px solid transparent; }
+        .note-cell:focus { background: #fffde7; border: 1px solid #ffd600; }
         
-        .admin-box { background: #fdfdfd; border: 1px solid #eee; padding: 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; min-width: 220px; }
-        .admin-box label { font-size: 0.7rem; font-weight: bold; color: #999; text-transform: uppercase; }
-        .admin-box input[type="password"] { padding: 6px; font-size: 0.8rem; border: 1px solid #ddd; border-radius: 4px; }
-        .file-upload { font-size: 0.75rem; color: #666; }
+        .admin-box { background: #fdfdfd; border: 1px solid #eee; padding: 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; }
+        .admin-box input[type="password"] { padding: 5px; font-size: 0.8rem; border: 1px solid #ddd; }
     </style>
 </head>
 <body>
@@ -55,7 +60,11 @@
     <div class="header">
         <div>
             <h1>Daily Maintenance Log</h1>
-            <div style="font-size: 0.85rem; color: #888; margin-top: 5px;">Source: dailychecks.xlsx</div>
+            <div class="legend">
+                <div class="legend-item"><div class="box" style="background:#fff;"></div> Left-Click: Complete</div>
+                <div class="legend-item"><div class="box" style="background:#ffcccc; border-color:var(--danger);"></div> Right-Click: Issue/Rerun</div>
+                <div class="legend-item"><span class="na-cell">N/A</span> Skip/Not Required</div>
+            </div>
         </div>
         
         <div class="week-picker-container">
@@ -65,18 +74,15 @@
         </div>
 
         <div class="admin-box">
-            <label>Template Management</label>
-            <input type="password" id="uploadCode" placeholder="Enter Admin Code">
-            <div class="file-upload">
-                <input type="file" id="csvFile" accept=".csv">
-            </div>
+            <input type="password" id="uploadCode" placeholder="Admin Code to Upload">
+            <input type="file" id="csvFile" accept=".csv" style="font-size: 0.7rem;">
         </div>
     </div>
 
     <div class="controls">
-        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search tasks by description...">
-        <button id="todayBtn" class="btn btn-today">Return to Current Week</button>
-        <button id="exportBtn" class="btn btn-export">📥 Export Week to CSV</button>
+        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search tasks...">
+        <button id="todayBtn" class="btn btn-today">Current Week</button>
+        <button id="exportBtn" class="btn btn-export">📥 Download CSV Report</button>
     </div>
     
     <table id="checklistTable">
@@ -84,11 +90,7 @@
             <tr>
                 <th class="col-task">Task Description</th>
                 <th class="col-time">Time</th>
-                <th class="col-day">Mon</th>
-                <th class="col-day">Tue</th>
-                <th class="col-day">Wed</th>
-                <th class="col-day">Thu</th>
-                <th class="col-day">Fri</th>
+                <th class="col-day">Mon</th><th class="col-day">Tue</th><th class="col-day">Wed</th><th class="col-day">Thu</th><th class="col-day">Fri</th>
                 <th class="col-notes">Notes</th>
             </tr>
         </thead>
@@ -105,49 +107,33 @@
     const db = getFirestore(app);
 
     let currentWeekId = "";
-    let currentRows = [];
     let unsubscribe = null;
 
-    // --- DATE & WEEK HELPER ---
     function getWeekData(dateObj) {
         const d = new Date(dateObj);
         const day = d.getDay();
         const diff = d.getDate() - day + (day === 0 ? -6 : 1);
         const mon = new Date(d.setDate(diff));
         const fri = new Date(new Date(mon).setDate(mon.getDate() + 4));
-        
-        // Calculate Week Number
         const tempDate = new Date(Date.UTC(mon.getFullYear(), mon.getMonth(), mon.getDate()));
         tempDate.setUTCDate(tempDate.getUTCDate() + 4 - (tempDate.getUTCDay() || 7));
         const yearStart = new Date(Date.UTC(tempDate.getUTCFullYear(), 0, 1));
         const weekNo = Math.ceil((((tempDate - yearStart) / 86400000) + 1) / 7);
-
-        return {
-            weekNo,
-            year: mon.getFullYear(),
-            range: `${mon.toLocaleDateString(undefined, {month:'short', day:'numeric'})} - ${fri.toLocaleDateString(undefined, {month:'short', day:'numeric'})}`,
-            inputVal: `${mon.getFullYear()}-W${weekNo.toString().padStart(2, '0')}`
-        };
+        return { weekNo, year: mon.getFullYear(), range: `${mon.toLocaleDateString(undefined, {month:'short', day:'numeric'})} - ${fri.toLocaleDateString(undefined, {month:'short', day:'numeric'})}`, inputVal: `${mon.getFullYear()}-W${weekNo.toString().padStart(2, '0')}` };
     }
 
-    // --- VIEW LOADING ---
     function loadWeek(dateSource) {
         const info = getWeekData(dateSource);
         currentWeekId = `${info.year}_W${info.weekNo}`;
-        
         document.getElementById('weekSelector').value = info.inputVal;
         document.getElementById('dateRangeDisplay').innerText = info.range;
-
         if (unsubscribe) unsubscribe();
         loadTemplate();
     }
 
     async function loadTemplate() {
         const snap = await getDoc(doc(db, "settings", "template"));
-        if (snap.exists()) {
-            currentRows = snap.data().rows;
-            renderTable(currentRows);
-        }
+        if (snap.exists()) renderTable(snap.data().rows);
     }
 
     function renderTable(rows) {
@@ -161,15 +147,13 @@
                 ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach((day, dIdx) => {
                     const cellId = `r${rowIndex}_${day}`;
                     const rawVal = row.daysData ? row.daysData[dIdx] : "";
-                    
                     if (rawVal && rawVal.toUpperCase() === "N/A") {
-                        html += `<td class="col-day" style="color: #bbb; font-size: 0.7rem; font-weight: bold;">N/A</td>`;
+                        html += `<td class="col-day na-cell">N/A</td>`;
                     } else {
-                        html += `<td class="col-day"><input type="checkbox" id="${cellId}"></td>`;
+                        html += `<td class="col-day checkbox-cell"><input type="checkbox" id="${cellId}"></td>`;
                     }
                 });
-                const noteId = `note_${rowIndex}`;
-                html += `<td class="col-notes"><div contenteditable="true" class="note-cell" id="${noteId}"></div></td>`;
+                html += `<td class="col-notes"><div contenteditable="true" class="note-cell" id="note_${rowIndex}"></div></td>`;
                 tr.innerHTML = html;
             }
             tableBody.appendChild(tr);
@@ -177,12 +161,7 @@
         syncWithFirebase();
     }
 
-    // --- FIREBASE SYNC ---
     function syncWithFirebase() {
-        // Reset local UI states before new sync
-        document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
-        document.querySelectorAll('.note-cell').forEach(n => n.innerText = "");
-
         const docRef = doc(db, "weekly_checks", currentWeekId);
         unsubscribe = onSnapshot(docRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -190,28 +169,46 @@
                 Object.keys(data).forEach(id => {
                     const el = document.getElementById(id);
                     if (!el) return;
-                    if (el.type === 'checkbox') el.checked = data[id];
-                    else if (el.getAttribute('contenteditable') && document.activeElement !== el) el.innerText = data[id];
+                    if (el.type === 'checkbox') {
+                        el.checked = data[id];
+                        const isIssue = data[id + "_issue"] || false;
+                        el.closest('td').classList.toggle('has-issue', isIssue);
+                    } else if (el.getAttribute('contenteditable') && document.activeElement !== el) el.innerText = data[id];
                 });
+            }
+        });
+
+        // HANDLE LEFT CLICK (CHECK)
+        tableBody.onclick = async (e) => { 
+            if (e.target.type === 'checkbox') {
+                await setDoc(docRef, { [e.target.id]: e.target.checked }, { merge: true });
+            }
+        };
+
+        // HANDLE RIGHT CLICK (ISSUE TOGGLE)
+        tableBody.oncontextmenu = async (e) => {
+            const td = e.target.closest('.checkbox-cell');
+            if (td) {
+                e.preventDefault();
+                const cb = td.querySelector('input');
+                const issueKey = cb.id + "_issue";
+                const currentlyHasIssue = td.classList.contains('has-issue');
+                await setDoc(docRef, { [issueKey]: !currentlyHasIssue }, { merge: true });
+            }
+        };
+
+        tableBody.addEventListener('focusout', async (e) => { 
+            if (e.target.classList.contains('note-cell')) {
+                await setDoc(docRef, { [e.target.id]: e.target.innerText }, { merge: true });
             }
         });
     }
 
-    // --- ACTIONS ---
     document.getElementById('csvFile').addEventListener('change', async function(e) {
         const userCode = document.getElementById('uploadCode').value;
-        const file = e.target.files[0];
-        if (!file) return;
-
-        // 1. Fetch Dynamic Admin Code from Firebase
         const securitySnap = await getDoc(doc(db, "settings", "security"));
         const masterCode = securitySnap.exists() ? securitySnap.data().adminCode : null;
-
-        if (!masterCode || userCode !== masterCode) {
-            alert("❌ Incorrect Admin Code. Access Denied.");
-            e.target.value = "";
-            return;
-        }
+        if (userCode !== masterCode) { alert("❌ Access Denied"); e.target.value = ""; return; }
 
         const reader = new FileReader();
         reader.onload = async (event) => {
@@ -219,74 +216,35 @@
             const rows = [];
             for (let i = 2; i < lines.length; i++) {
                 const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-                if (cols[0] && !cols[0].includes('http')) {
-                    rows.push({
-                        task: cols[0],
-                        time: cols[1] || '',
-                        daysData: [cols[2], cols[3], cols[4], cols[5], cols[6]],
-                        isHeader: (cols[1] === "" && !cols[2])
-                    });
-                }
+                if (cols[0]) rows.push({ task: cols[0], time: cols[1] || '', daysData: [cols[2],cols[3],cols[4],cols[5],cols[6]], isHeader: (cols[1] === "" && !cols[2]) });
             }
             await setDoc(doc(db, "settings", "template"), { rows });
-            alert("✅ Template Updated Successfully!");
             renderTable(rows);
-            document.getElementById('uploadCode').value = "";
         };
-        reader.readAsText(file);
+        reader.readAsText(e.target.files[0]);
     });
 
     document.getElementById('exportBtn').onclick = () => {
         let csv = "Task,Time,Mon,Tue,Wed,Thu,Fri,Notes\n";
         document.querySelectorAll('#tableBody tr:not(:has(.section-header))').forEach(row => {
-            const cells = [
-                `"${row.querySelector('.col-task').innerText}"`,
-                row.querySelector('.col-time').innerText,
-                ...Array.from(row.querySelectorAll('.col-day')).map(td => {
-                    const cb = td.querySelector('input');
-                    return cb ? (cb.checked ? "DONE" : "") : "N/A";
-                }),
-                `"${row.querySelector('.note-cell').innerText}"`
-            ];
+            const cells = [`"${row.querySelector('.col-task').innerText}"`, row.querySelector('.col-time').innerText, ...Array.from(row.querySelectorAll('.col-day')).map(td => td.querySelector('input')?.checked ? "DONE" : (td.classList.contains('na-cell') ? "N/A" : "")), `"${row.querySelector('.note-cell').innerText}"`];
             csv += cells.join(",") + "\n";
         });
         const blob = new Blob([csv], { type: 'text/csv' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `Weekly_Log_${currentWeekId}.csv`;
-        a.click();
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Log_${currentWeekId}.csv`; a.click();
     };
 
     document.getElementById('searchInput').addEventListener('input', (e) => {
-        const term = e.target.value.toLowerCase();
-        document.querySelectorAll('#tableBody tr').forEach(row => {
-            const taskText = row.querySelector('.col-task')?.innerText.toLowerCase() || "";
-            // Always show headers, filter others
-            row.classList.toggle('hidden', term !== "" && !taskText.includes(term) && !row.querySelector('.section-header'));
-        });
+        const t = e.target.value.toLowerCase();
+        document.querySelectorAll('#tableBody tr').forEach(r => r.classList.toggle('hidden', t !== "" && !r.innerText.toLowerCase().includes(t) && !r.querySelector('.section-header')));
     });
 
     document.getElementById('weekSelector').addEventListener('change', (e) => {
-        const [year, week] = e.target.value.split('-W');
-        const simpleDate = new Date(year, 0, 1 + (week - 1) * 7);
-        loadWeek(simpleDate);
+        const [y, w] = e.target.value.split('-W');
+        loadWeek(new Date(y, 0, 1 + (w - 1) * 7));
     });
 
     document.getElementById('todayBtn').onclick = () => loadWeek(new Date());
-
-    tableBody.onclick = async (e) => { 
-        if (e.target.type === 'checkbox') {
-            await setDoc(doc(db, "weekly_checks", currentWeekId), { [e.target.id]: e.target.checked }, { merge: true });
-        }
-    };
-    
-    tableBody.addEventListener('focusout', async (e) => { 
-        if (e.target.classList.contains('note-cell')) {
-            await setDoc(doc(db, "weekly_checks", currentWeekId), { [e.target.id]: e.target.innerText }, { merge: true });
-        }
-    });
-
-    // Start App
     loadWeek(new Date());
 </script>
 </body>
