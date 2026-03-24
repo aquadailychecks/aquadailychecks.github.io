@@ -168,14 +168,21 @@
         if (snap.exists()) renderTable(snap.data().rows);
     }
 
-    function renderTable(rows) {
+function renderTable(rows) {
         const tableBody = document.getElementById('tableBody');
         tableBody.innerHTML = '';
         rows.forEach((row, i) => {
             const tr = document.createElement('tr');
-            const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
+            
+            // UPDATED REGEX: Now catches http, https, www, and file protocols
+            const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|file:\/\/\/[^\s]+|file:\/\/[^\s]+)/g;
+            
             const taskWithLinks = row.task.replace(urlRegex, (url) => {
-                const href = url.startsWith('http') ? url : `http://${url}`;
+                let href = url;
+                if (url.startsWith('www.')) {
+                    href = `http://${url}`;
+                }
+                // We keep file:// links exactly as they are
                 return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
             });
 
