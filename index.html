@@ -169,39 +169,48 @@
     }
 
 function renderTable(rows) {
-        const tableBody = document.getElementById('tableBody');
-        tableBody.innerHTML = '';
-        rows.forEach((row, i) => {
-            const tr = document.createElement('tr');
-            
-            // UPDATED REGEX: Now catches http, https, www, and file protocols
-            const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|file:\/\/\/[^\s]+|file:\/\/[^\s]+)/g;
-            
-            const taskWithLinks = row.task.replace(urlRegex, (url) => {
-                let href = url;
-                if (url.startsWith('www.')) {
-                    href = `http://${url}`;
-                }
-                // We keep file:// links exactly as they are
-                return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-            });
+    const tableBody = document.getElementById('tableBody');
+    tableBody.innerHTML = '';
+    rows.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        
+        // Regex to find http, www, and file links
+        const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|file:\/\/\/[^\s]+|file:\/\/[^\s]+)/g;
+        
+        const taskWithLinks = row.task.replace(urlRegex, (url) => {
+            const isLocal = url.startsWith('file://');
+            let href = url;
+            if (url.startsWith('www.')) href = `http://${url}`;
 
-            if (row.isHeader) {
-                tr.innerHTML = `<td colspan="8" class="section-header">${taskWithLinks}</td>`;
-            } else {
-                let h = `<td class="col-task">${taskWithLinks}</td><td class="col-time">${row.time}</td>`;
-                ['Mon','Tue','Wed','Thu','Fri'].forEach((d, idx) => {
-                    const id = `r${i}_${d}`;
-                    const isNA = row.daysData[idx]?.toUpperCase() === "N/A";
-                    h += isNA ? `<td class="col-day na-cell">N/A</td>` : `<td class="col-day checkbox-cell" data-cell-id="${id}"><input type="checkbox" id="${id}" ${isEditingEnabled?'':'disabled'}></td>`;
-                });
-                h += `<td class="col-notes"><div class="note-cell" id="note_${i}" contenteditable="${isEditingEnabled}"></div></td>`;
-                tr.innerHTML = h;
+            if (isLocal) {
+                // Return the link PLUS a copy button for local files
+                return `
+                    <a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>
+                    <button onclick="navigator.clipboard.writeText('${url.replace(/\\/g, '\\\\')}')" 
+                            title="Copy Path" 
+                            style="margin-left:5px; cursor:pointer; padding:2px 5px; font-size:10px; border-radius:3px; border:1px solid #ccc; background:#eee;">
+                        📋 Copy
+                    </button>`;
             }
-            tableBody.appendChild(tr);
+            return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
         });
-        syncWithFirebase();
-    }
+
+        if (row.isHeader) {
+            tr.innerHTML = `<td colspan="8" class="section-header">${taskWithLinks}</td>`;
+        } else {
+            let h = `<td class="col-task">${taskWithLinks}</td><td class="col-time">${row.time}</td>`;
+            ['Mon','Tue','Wed','Thu','Fri'].forEach((d, idx) => {
+                const id = `r${i}_${d}`;
+                const isNA = row.daysData[idx]?.toUpperCase() === "N/A";
+                h += isNA ? `<td class="col-day na-cell">N/A</td>` : `<td class="col-day checkbox-cell" data-cell-id="${id}"><input type="checkbox" id="${id}" ${isEditingEnabled?'':'disabled'}></td>`;
+            });
+            h += `<td class="col-notes"><div class="note-cell" id="note_${i}" contenteditable="${isEditingEnabled}"></div></td>`;
+            tr.innerHTML = h;
+        }
+        tableBody.appendChild(tr);
+    });
+    syncWithFirebase();
+}
 
     function syncWithFirebase() {
         const docRef = doc(db, "weekly_checks", currentWeekId);
